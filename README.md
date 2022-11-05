@@ -64,7 +64,7 @@ Tips:
 | max    | 汇总-最大 | { fields: "max(id), max(name)" }     | max(id) as id_max, max(name) as name_max         |
 
 # 3. 使用方式 Usage
-- 
+
 ## 3.1. 定义POJO类
 
 定义pojo超类，实体继承后，用于存储自定义查询条件的操作符。分为两个超类：一个是查询条件QueryCriteria，一个是分页查询条件PageCriteria
