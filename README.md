@@ -1,10 +1,12 @@
 驯服查询 taming
 
 基于Mybatis Plus的QueryWrapper之上的查询条件拼装
+
 Assembly of query conditions based on QueryWrapper of Mybatis Plus
 
 # 1. summary
    以Key-Value方式传送Params，Key以@为间隔符，标明字段名称和操作。Value为查询值
+
    Params are transmitted in Key Value mode. Key uses @ as the separator to indicate the field name and operation. Value is the query value
 ```javascript
 //示例 ex
@@ -66,7 +68,9 @@ Tips:
 ## 3.1. 定义POJO类
 
 定义pojo超类，实体继承后，用于存储自定义查询条件的操作符。分为两个超类：一个是查询条件QueryCriteria，一个是分页查询条件PageCriteria
+
 Define the pojo superclass. After the entity inherits, it is used to store the operator of user-defined query conditions. There are two superclasses: one is query criteria QueryCriteria, and the other is pagination query criteria PageCriteria
+
 ### 使用示例 Example of use
 
 ```java
@@ -102,6 +106,7 @@ public class ExWebAutoConfiguration implements WebMvcConfigurer {
 ## 3.4. 结合BaseMapper使用  Used in combination with BaseMapper
 
 实例化QueryCriteriaWrapperBuilder要特别注册实例化范型，使用`new QueryCriteriaWrapperBuilder<ExDO>(){}`方式
+
 To instantiate QueryCriteriaWrapperBuilder, you need to register the instantiation paradigm, using the 'new QueryCriteriaWrapperBuilder<ExDO>() {}' method
 
 ```java
