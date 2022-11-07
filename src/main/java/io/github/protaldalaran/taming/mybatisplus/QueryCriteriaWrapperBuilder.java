@@ -5,11 +5,11 @@ import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.core.toolkit.support.ColumnCache;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import io.github.portaldalaran.talons.annotation.JoinColumn;
 import io.github.portaldalaran.talons.core.TalonsHelper;
 import io.github.portaldalaran.talons.exception.TalonsException;
 import io.github.portaldalaran.talons.meta.AssociationFieldInfo;
+import io.github.portaldalaran.talons.meta.AssociationQueryField;
 import io.github.portaldalaran.talons.meta.AssociationTableInfo;
 import io.github.portaldalaran.talons.meta.AssociationType;
 import io.github.protaldalaran.taming.core.QueryCriteriaException;
@@ -28,7 +28,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- *
  * @author aohee@163.com
  */
 public class QueryCriteriaWrapperBuilder<T> {
@@ -52,9 +51,9 @@ public class QueryCriteriaWrapperBuilder<T> {
     public static final String COUNT_OPERATOR = "count";
     public static final String MIN_OPERATOR = "min";
     public static final String MAX_OPERATOR = "max";
-    public Map<String, String> queryRelationFields = Maps.newHashMap();
+    private List<AssociationQueryField> associationQueryFields = new ArrayList<>();
 
-    QueryWrapper<T> queryWrapper;
+    private QueryWrapper<T> queryWrapper;
     private Class<T> modelClass;
     private List<String> buildVODeclaredFieldNames;
 
@@ -88,6 +87,17 @@ public class QueryCriteriaWrapperBuilder<T> {
 
     public QueryWrapper<T> getQueryWrapper() {
         return queryWrapper;
+    }
+
+    /**
+     * 返回关联字段
+     * association entity query select parameter
+     * user.name,user.sex => select name,sex from user
+     *
+     * @return
+     */
+    public List<AssociationQueryField> getAssociationQueryFields() {
+        return associationQueryFields;
     }
 
     private String getColumn(String field) {
@@ -124,7 +134,7 @@ public class QueryCriteriaWrapperBuilder<T> {
      * 构建返回字段，如果有传fields值
      * Build the result fields,and input the fields value if any
      *
-     * @param fieldsParams         paramName=fields value
+     * @param fieldsParams            paramName=fields value
      * @param selectAssociationFields paramName.con
      * @return list<string>
      */
@@ -140,21 +150,21 @@ public class QueryCriteriaWrapperBuilder<T> {
         List<AssociationFieldInfo> rsTableInfoAnnotations = rsTableInfo.getAnnotations();
 
         List<String> queryFields = new ArrayList<>();
-        for (SelectAssociationFields associationFields : selectAssociationFields) {
-            if (SqlUtils.checkSqlInjection(associationFields.getEntityName())) {
+        for (SelectAssociationFields selectAssField : selectAssociationFields) {
+            if (SqlUtils.checkSqlInjection(selectAssField.getEntityName())) {
                 throw new TalonsException("Query parameter SQL injection verification failed");
             }
             //通过Annotations找到与关联表对应的字段名称
             //Find the field name corresponding to the associated table through Annotations
             AssociationFieldInfo rsFieldInfo = rsTableInfoAnnotations.stream()
-                    .filter(rsf -> rsf.getName().equals(associationFields.getEntityName()))
+                    .filter(rsf -> rsf.getName().equals(selectAssField.getEntityName()))
                     .findFirst().orElse(null);
 
             if (Objects.isNull(rsFieldInfo)) {
                 continue;
             }
             if (rsFieldInfo.getAssociationType() == AssociationType.MANYTOONE) {
-                String m2oId = associationFields.getEntityName() + "Id";
+                String m2oId = selectAssField.getEntityName() + "Id";
                 //改为不判断，直接加上，在后边有去掉重复的字段
                 //Add directly, and then there are fields to remove duplicates
                 queryFields.add(getColumn(m2oId));
@@ -163,7 +173,13 @@ public class QueryCriteriaWrapperBuilder<T> {
             //If the associated object has multiple relation fields, it should be added to the fields of the query
             List<JoinColumn> joinColumns = rsFieldInfo.getJoinColumns();
             joinColumns.forEach(jc -> queryFields.add(getColumn(jc.name())));
+
+            AssociationQueryField assQueryField = new AssociationQueryField();
+            assQueryField.setTableName(selectAssField.getEntityName());
+            assQueryField.setParameters(Joiner.on(",").join(selectAssField.getFieldNames()));
+            associationQueryFields.add(assQueryField);
         }
+
         String[] inputFieldList = fieldsParams.split(QueryCriteriaConstants.FIELD_DELIMITER);
         for (String inputField : inputFieldList) {
             //ex: count(name)/sum(name)/min(name)
@@ -275,6 +291,7 @@ public class QueryCriteriaWrapperBuilder<T> {
     /**
      * 处理where条件，拼装到Mybatis的QueryWrapper中
      * Build where condition and assemble it into the QueryWrapper of Mybatis
+     *
      * @param wrapper            queryWrapper
      * @param queryCriteriaParam request parameter Map
      */
@@ -328,9 +345,10 @@ public class QueryCriteriaWrapperBuilder<T> {
     /**
      * 构建带@符号的查询条件，并拼装到Mybatis的QueryWrapper中
      * Build query conditions with @ sign and assemble them into the QueryWrapper of Mybatis
-     * @param wrapper query wrapper
+     *
+     * @param wrapper   query wrapper
      * @param paramName parameter name
-     * @param value parameter value
+     * @param value     parameter value
      * @param operation parameter name @operation
      */
     private void buildCriteriaAtParam(QueryWrapper<T> wrapper, String paramName, Object value, String operation) {
@@ -408,7 +426,8 @@ public class QueryCriteriaWrapperBuilder<T> {
     /**
      * 把以逗号分割的字符串转化为数据
      * Convert comma separated strings to data
-     * @param value  parameter value
+     *
+     * @param value parameter value
      * @return list<>
      */
     private List<Object> loadValueList(Object value) {

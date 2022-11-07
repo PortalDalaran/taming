@@ -4,8 +4,6 @@ import io.github.protaldalaran.taming.annotation.RequestQueryParam;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -16,12 +14,11 @@ import javax.servlet.http.HttpServletRequest;
 /**
  * @author aohee@163.com
  */
-@Component
 public class QueryCriteriaMethodArgumentResolver implements HandlerMethodArgumentResolver, Ordered {
 
     /**
      * 解析Content-Type为application/x-www-form-urlencoded的默认解析器是ServletModelAttributeMethodProcessor
-     *
+     * <p>
      * The default resolver for resolving Content Type as application/x-www-form-urlencoded is ServletModelAttributeMethodProcessor
      */
     private QueryCriteriaModelAttributeMethodProcessor queryCriteriaModelAttributeMethodProcessor;
@@ -54,7 +51,6 @@ public class QueryCriteriaMethodArgumentResolver implements HandlerMethodArgumen
         if (Strings.isBlank(contentType)) {
             return queryCriteriaModelAttributeMethodProcessor.resolveArgument(methodParameter, modelAndViewContainer, nativeWebRequest, webDataBinderFactory);
         }
-
 
         return queryCriteriaModelAttributeMethodProcessor.resolveArgument(methodParameter, modelAndViewContainer, nativeWebRequest, webDataBinderFactory);
     }
