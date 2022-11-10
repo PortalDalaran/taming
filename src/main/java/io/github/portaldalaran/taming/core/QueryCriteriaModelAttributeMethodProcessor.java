@@ -1,7 +1,7 @@
-package io.github.protaldalaran.taming.core;
+package io.github.portaldalaran.taming.core;
 
-import io.github.protaldalaran.taming.pojo.QueryCriteriaParam;
-import io.github.protaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
+import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
 import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.TypeMismatchException;

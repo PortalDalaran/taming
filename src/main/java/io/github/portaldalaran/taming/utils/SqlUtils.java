@@ -1,4 +1,4 @@
-package io.github.protaldalaran.taming.utils;
+package io.github.portaldalaran.taming.utils;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

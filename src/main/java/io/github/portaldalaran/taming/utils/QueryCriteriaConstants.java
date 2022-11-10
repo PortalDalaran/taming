@@ -1,4 +1,4 @@
-package io.github.protaldalaran.taming.utils;
+package io.github.portaldalaran.taming.utils;
 
 /**
  * @author aohee@163.com

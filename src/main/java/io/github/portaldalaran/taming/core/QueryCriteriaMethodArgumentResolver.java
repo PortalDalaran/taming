@@ -1,6 +1,6 @@
-package io.github.protaldalaran.taming.core;
+package io.github.portaldalaran.taming.core;
 
-import io.github.protaldalaran.taming.annotation.RequestQueryParam;
+import io.github.portaldalaran.taming.annotation.RequestQueryParam;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;

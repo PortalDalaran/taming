@@ -1,4 +1,4 @@
-package io.github.protaldalaran.taming.mybatisplus;
+package io.github.portaldalaran.taming.mybatisplus;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
@@ -12,12 +12,12 @@ import io.github.portaldalaran.talons.meta.AssociationFieldInfo;
 import io.github.portaldalaran.talons.meta.AssociationQueryField;
 import io.github.portaldalaran.talons.meta.AssociationTableInfo;
 import io.github.portaldalaran.talons.meta.AssociationType;
-import io.github.protaldalaran.taming.core.QueryCriteriaException;
-import io.github.protaldalaran.taming.pojo.QueryCriteria;
-import io.github.protaldalaran.taming.pojo.QueryCriteriaParam;
-import io.github.protaldalaran.taming.pojo.SelectAssociationFields;
-import io.github.protaldalaran.taming.utils.QueryCriteriaConstants;
-import io.github.protaldalaran.taming.utils.SqlUtils;
+import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.SqlUtils;
+import io.github.portaldalaran.taming.core.QueryCriteriaException;
+import io.github.portaldalaran.taming.pojo.QueryCriteria;
+import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
+import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.reflect.Field;

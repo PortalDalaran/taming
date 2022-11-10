@@ -1,4 +1,4 @@
-package io.github.protaldalaran.taming.pojo;
+package io.github.portaldalaran.taming.pojo;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;

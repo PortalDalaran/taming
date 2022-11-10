@@ -1,4 +1,4 @@
-package io.github.protaldalaran.taming.annotation;
+package io.github.portaldalaran.taming.annotation;
 
 import java.lang.annotation.*;
 

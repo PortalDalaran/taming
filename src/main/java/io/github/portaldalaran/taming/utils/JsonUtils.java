@@ -1,4 +1,4 @@
-package io.github.protaldalaran.taming.utils;
+package io.github.portaldalaran.taming.utils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

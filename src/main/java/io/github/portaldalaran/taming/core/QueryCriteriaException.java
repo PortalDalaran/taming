@@ -1,4 +1,4 @@
-package io.github.protaldalaran.taming.core;
+package io.github.portaldalaran.taming.core;
 
 /**
  * @author david

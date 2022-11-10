@@ -1,10 +1,10 @@
-package io.github.protaldalaran.taming.core;
+package io.github.portaldalaran.taming.core;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import io.github.protaldalaran.taming.pojo.QueryCriteriaParam;
-import io.github.protaldalaran.taming.pojo.SelectAssociationFields;
-import io.github.protaldalaran.taming.utils.JsonUtils;
-import io.github.protaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
+import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
+import io.github.portaldalaran.taming.utils.JsonUtils;
+import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
