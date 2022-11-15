@@ -432,11 +432,11 @@ public class QueryCriteriaWrapperBuilder<T> {
                 break;
             }
             case START_WITH_OPERATOR: {
-                wrapper.likeLeft(paramColumnName, value);
+                wrapper.likeRight(paramColumnName, value);
                 break;
             }
             case END_WITH_OPERATOR: {
-                wrapper.likeRight(paramColumnName, value);
+                wrapper.likeLeft(paramColumnName, value);
                 break;
             }
             case IN_OPERATOR: {
