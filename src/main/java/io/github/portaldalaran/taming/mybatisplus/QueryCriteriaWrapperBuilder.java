@@ -115,11 +115,13 @@ public class QueryCriteriaWrapperBuilder<T> {
     }
 
     public <V extends QueryCriteria> boolean build(V criteriaVO) {
+        buildVODeclaredFieldNames = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());
+
         List<String> queryFields = buildFields(criteriaVO.getFields(), criteriaVO.getSelectAssociationFields());
         buildGroupBy(criteriaVO.getGroupBy(), queryFields);
         buildHaving(criteriaVO.getHaving());
         buildOrderBy(criteriaVO.getOrderBy());
-        buildVODeclaredFieldNames = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());
+
         //处理where条件
         criteriaVO.getCriteriaParams().forEach(queryCriteriaParam -> buildCriteriaParam(queryWrapper, queryCriteriaParam));
 
@@ -212,6 +214,13 @@ public class QueryCriteriaWrapperBuilder<T> {
         String[] groupBySplitParams = groupByParams.split(QueryCriteriaConstants.FIELD_DELIMITER);
         for (String groupByParam : groupBySplitParams) {
             groupByParam = getColumn(groupByParam);
+
+            //paramName必须是build VO的属性
+            //ParamName must be an attribute of build VO
+            if (!buildVODeclaredFieldNames.contains(groupByParam)) {
+                continue;
+            }
+
             if (!queryFields.contains(groupByParam)) {
                 queryFields.add(groupByParam);
             }
@@ -237,6 +246,13 @@ public class QueryCriteriaWrapperBuilder<T> {
         String[] orders = orderBy.split(QueryCriteriaConstants.FIELD_DELIMITER);
         for (String order : orders) {
             String[] tempOrder = order.split(QueryCriteriaConstants.OPTION_DELIMITER);
+
+            //paramName必须是build VO的属性
+            //ParamName must be an attribute of build VO
+            if (!buildVODeclaredFieldNames.contains(tempOrder[0])) {
+                continue;
+            }
+
             if (tempOrder[1].equalsIgnoreCase(QueryCriteriaConstants.DESC_OPERATOR)) {
                 queryWrapper.orderByDesc(getColumn(tempOrder[0]));
             } else {
@@ -263,6 +279,12 @@ public class QueryCriteriaWrapperBuilder<T> {
                 //如果是统计就要把中间的字段拿 来转换
                 //For statistics, the fields in the middle should be converted
                 String changStr = havingStr.substring(havingStr.indexOf("(") + 1, havingStr.indexOf(")")).trim();
+
+                //paramName必须是build VO的属性
+                //ParamName must be an attribute of build VO
+                if (!buildVODeclaredFieldNames.contains(changStr)) {
+                    continue;
+                }
                 havingStr = havingStr.replaceAll(changStr, getColumn(changStr));
             } else {
                 String changStr = "";
@@ -281,6 +303,13 @@ public class QueryCriteriaWrapperBuilder<T> {
                 } else if (havingStr.toLowerCase().indexOf("like") > 1) {
                     changStr = havingStr.substring(0, havingStr.toLowerCase().indexOf("like")).trim();
                 }
+
+                //paramName必须是build VO的属性
+                //ParamName must be an attribute of build VO
+                if (!buildVODeclaredFieldNames.contains(changStr)) {
+                    continue;
+                }
+
                 havingStr = havingStr.replaceAll(changStr, getColumn(changStr));
             }
             havingColumns.add(havingStr);
