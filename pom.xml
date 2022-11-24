@@ -6,7 +6,7 @@
 
     <groupId>io.github.portaldalaran</groupId>
     <artifactId>taming</artifactId>
-    <version>1.0.5</version>
+    <version>1.0.6</version>
     <packaging>jar</packaging>
     <name>${project.artifactId}</name>
     <description>
@@ -24,7 +24,8 @@
         <mybatis-plus.version>3.5.2</mybatis-plus.version>
         <commons.lang3.version>3.12.0</commons.lang3.version>
         <guava.version>31.1-jre</guava.version>
-        <portaldalaran.talons.version>1.0.3</portaldalaran.talons.version>
+        <fastjson.version>2.0.9</fastjson.version>
+        <portaldalaran.talons.version>1.0.6</portaldalaran.talons.version>
 
         <!-- 服务id 也就是setting.xml中的servers.server.id -->
         <serverId>ossrh</serverId>
@@ -55,6 +56,11 @@
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-boot-starter</artifactId>
             <version>${mybatis-plus.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>${fastjson.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>

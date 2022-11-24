@@ -1,8 +1,10 @@
 package io.github.portaldalaran.taming.mybatisplus;
 
+import com.alibaba.fastjson.annotation.JSONField;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.core.toolkit.support.ColumnCache;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import io.github.portaldalaran.talons.annotation.JoinColumn;
@@ -18,12 +20,23 @@ import io.github.portaldalaran.taming.core.QueryCriteriaException;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
+import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.beans.PropertyDescriptor;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.text.MessageFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -31,31 +44,12 @@ import java.util.stream.Collectors;
  * @author aohee@163.com
  */
 public class QueryCriteriaWrapperBuilder<T> {
-    public static final String ALL_EQ_OPERATOR = "allEq";
-    public static final String EQ_OPERATOR = "eq";
-    public static final String NE_OPERATOR = "ne";
-    public static final String GE_OPERATOR = "ge";
-    public static final String GT_OPERATOR = "gt";
-    public static final String LE_OPERATOR = "le";
-    public static final String LT_OPERATOR = "lt";
-    public static final String LIKE_OPERATOR = "like";
-    public static final String NOT_LIKE_OPERATOR = "notLike";
-    public static final String START_WITH_OPERATOR = "startWith";
-    public static final String END_WITH_OPERATOR = "endWith";
-    public static final String IN_OPERATOR = "in";
-    public static final String NOT_IN_OPERATOR = "notIn";
 
-    public static final String BETWEEN_OPERATOR = "bet";
-    public static final String SUM_OPERATOR = "sum";
-    public static final String AVG_OPERATOR = "avg";
-    public static final String COUNT_OPERATOR = "count";
-    public static final String MIN_OPERATOR = "min";
-    public static final String MAX_OPERATOR = "max";
     private List<AssociationQueryField> associationQueryFields = new ArrayList<>();
 
     private QueryWrapper<T> queryWrapper;
     private Class<T> modelClass;
-    private List<String> buildVODeclaredFieldNames;
+    private List<String> buildEntityDeclaredFieldNames;
 
     public QueryCriteriaWrapperBuilder() {
         this.queryWrapper = new QueryWrapper<T>();
@@ -115,7 +109,12 @@ public class QueryCriteriaWrapperBuilder<T> {
     }
 
     public <V extends QueryCriteria> boolean build(V criteriaVO) {
-        buildVODeclaredFieldNames = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());
+        buildEntityDeclaredFieldNames = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());
+        List<QueryCriteriaParam> queryCriteriaParams = criteriaVO.getCriteriaParams();
+        if (Objects.isNull(queryCriteriaParams)) {
+            queryCriteriaParams = Lists.newArrayList();
+        }
+        assembleCriteriaParamsByEntityValue(criteriaVO, queryCriteriaParams);
 
         List<String> queryFields = buildFields(criteriaVO.getFields(), criteriaVO.getSelectAssociationFields());
         buildGroupBy(criteriaVO.getGroupBy(), queryFields);
@@ -123,12 +122,123 @@ public class QueryCriteriaWrapperBuilder<T> {
         buildOrderBy(criteriaVO.getOrderBy());
 
         //处理where条件
-        criteriaVO.getCriteriaParams().forEach(queryCriteriaParam -> buildCriteriaParam(queryWrapper, queryCriteriaParam));
+        queryCriteriaParams.forEach(queryCriteriaParam -> buildCriteriaParam(queryWrapper, queryCriteriaParam));
 
         if (!queryFields.isEmpty()) {
             queryWrapper.select(String.join(QueryCriteriaConstants.FIELD_DELIMITER, queryFields));
         }
         return true;
+    }
+
+    /**
+     * 把查询实体中，字段值不为空的拼装到QueryCriteria里
+     * Assemble the non empty field values in the query entity into QueryCriteria
+     *
+     * @param criteriaVO          criteria query entity
+     * @param queryCriteriaParams entity query parameters
+     * @param <V>                 entity extends QueryCriteria or PageCriteria
+     */
+    @SneakyThrows
+    private <V extends QueryCriteria> void assembleCriteriaParamsByEntityValue(V criteriaVO, List<QueryCriteriaParam> queryCriteriaParams) {
+        //between dateField
+        assembleDateFieldValue(criteriaVO, queryCriteriaParams);
+
+        BeanWrapper beanWrapper = new BeanWrapperImpl(criteriaVO);
+        PropertyDescriptor[] pds = beanWrapper.getPropertyDescriptors();
+
+        for (String fieldName : buildEntityDeclaredFieldNames) {
+            boolean isFieldName = Arrays.stream(pds).anyMatch(pd -> pd.getName().equalsIgnoreCase(fieldName));
+            //如果BeanWrapper中的字段在 field中
+            if (isFieldName) {
+                Object srcValue = beanWrapper.getPropertyValue(fieldName);
+                if (Objects.nonNull(srcValue)) {
+                    QueryCriteriaParam queryCriteriaParam = queryCriteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(fieldName)).findFirst().orElse(null);
+                    //如果已经存在，则覆盖原来的值
+                    //If it already exists, overwrite the original value
+                    if (Objects.nonNull(queryCriteriaParam)) {
+                        queryCriteriaParam.setValue(srcValue);
+                        queryCriteriaParam.setValue2(null);
+                    } else {
+                        queryCriteriaParams.add(new QueryCriteriaParam(fieldName, QueryCriteriaConstants.EQ_OPERATOR, srcValue, null));
+                    }
+                }
+            }
+        }
+
+    }
+
+    private static <V extends QueryCriteria> void assembleDateFieldValue(V criteriaVO, List<QueryCriteriaParam> queryCriteriaParams) throws ParseException {
+        //把日期的字段单独拿出来转换
+        List<Field> dateFields = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).filter(field -> field.getType() == LocalDate.class
+                || field.getType() == LocalDateTime.class
+                || field.getType() == Date.class).collect(Collectors.toList());
+
+        // if date between
+        for (Field dateField : dateFields) {
+            QueryCriteriaParam criteriaParam = queryCriteriaParams.stream().filter(param -> param.getName().equalsIgnoreCase(dateField.getName())).findFirst().orElse(null);
+            if (Objects.nonNull(criteriaParam) && criteriaParam.getValue() instanceof String) {
+                String dateValue = criteriaParam.getValue().toString();
+                if (dateValue.indexOf(QueryCriteriaConstants.FIELD_DELIMITER) > 0) {
+                    String[] tempValues = dateValue.split(QueryCriteriaConstants.FIELD_DELIMITER);
+                    criteriaParam.setValue(tempValues[0]);
+                    criteriaParam.setValue2(tempValues[1]);
+                }
+
+                if (LocalDate.class == dateField.getType()) {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd"));
+                    criteriaParam.setValue(LocalDate.parse(((String) criteriaParam.getValue()).trim(), formatter));
+                    if (Objects.nonNull(criteriaParam.getValue2())) {
+                        criteriaParam.setValue2(LocalDate.parse(criteriaParam.getValue2().toString(), formatter));
+                    }
+                } else if (LocalDateTime.class == dateField.getType()) {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
+
+                    criteriaParam.setValue(LocalDateTime.parse(criteriaParam.getValue().toString(), formatter));
+                    if (Objects.nonNull(criteriaParam.getValue2())) {
+                        criteriaParam.setValue2(LocalDateTime.parse(criteriaParam.getValue2().toString(), formatter));
+                    }
+                } else {
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
+
+                    criteriaParam.setValue(simpleDateFormat.parse(criteriaParam.getValue().toString()));
+                    if (Objects.nonNull(criteriaParam.getValue2())) {
+                        criteriaParam.setValue2(simpleDateFormat.parse(criteriaParam.getValue2().toString()));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 取field注解上的json格式化日期pattern
+     * Take the json formatted date pattern on the field annotation
+     * Only Jackson and Fastjson
+     *
+     * @param dateField      Date or LocalDateTime LocalDate Field
+     * @param defaultPattern default or null
+     * @return pattern
+     */
+    private static String getAnnotationDatePattern(Field dateField, String defaultPattern) {
+        String pattern = "yyyy-MM-dd HH:mm:ss";
+        if (StringUtils.isNotBlank(defaultPattern)) {
+            pattern = defaultPattern;
+        }
+
+        JsonFormat jsonFormatAnnotation = dateField.getAnnotation(JsonFormat.class);
+        DateTimeFormat dateTimeFormatAnnotation = dateField.getAnnotation(DateTimeFormat.class);
+        JSONField jsonFieldAnnotation = dateField.getAnnotation(JSONField.class);
+        com.alibaba.fastjson2.annotation.JSONField jsonField2Annotation = dateField.getAnnotation(com.alibaba.fastjson2.annotation.JSONField.class);
+
+        if (Objects.nonNull(jsonFormatAnnotation) && StringUtils.isNotBlank(jsonFormatAnnotation.pattern())) {
+            pattern = jsonFormatAnnotation.pattern();
+        } else if (Objects.nonNull(dateTimeFormatAnnotation) && StringUtils.isNotBlank(dateTimeFormatAnnotation.pattern())) {
+            pattern = dateTimeFormatAnnotation.pattern();
+        } else if (Objects.nonNull(jsonFieldAnnotation) && StringUtils.isNotBlank(jsonFieldAnnotation.format())) {
+            pattern = jsonFieldAnnotation.format();
+        } else if (Objects.nonNull(jsonField2Annotation) && StringUtils.isNotBlank(jsonField2Annotation.format())) {
+            pattern = jsonField2Annotation.format();
+        }
+        return pattern;
     }
 
 
@@ -217,7 +327,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
             //paramName必须是build VO的属性
             //ParamName must be an attribute of build VO
-            if (!buildVODeclaredFieldNames.contains(groupByParam)) {
+            if (!buildEntityDeclaredFieldNames.contains(groupByParam)) {
                 continue;
             }
 
@@ -249,7 +359,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
             //paramName必须是build VO的属性
             //ParamName must be an attribute of build VO
-            if (!buildVODeclaredFieldNames.contains(tempOrder[0])) {
+            if (!buildEntityDeclaredFieldNames.contains(tempOrder[0])) {
                 continue;
             }
 
@@ -282,7 +392,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
                 //paramName必须是build VO的属性
                 //ParamName must be an attribute of build VO
-                if (!buildVODeclaredFieldNames.contains(changStr)) {
+                if (!buildEntityDeclaredFieldNames.contains(changStr)) {
                     continue;
                 }
                 havingStr = havingStr.replaceAll(changStr, getColumn(changStr));
@@ -306,7 +416,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
                 //paramName必须是build VO的属性
                 //ParamName must be an attribute of build VO
-                if (!buildVODeclaredFieldNames.contains(changStr)) {
+                if (!buildEntityDeclaredFieldNames.contains(changStr)) {
                     continue;
                 }
 
@@ -324,14 +434,16 @@ public class QueryCriteriaWrapperBuilder<T> {
      * @param wrapper            queryWrapper
      * @param queryCriteriaParam request parameter Map
      */
+    @SneakyThrows
     private void buildCriteriaParam(QueryWrapper<T> wrapper, QueryCriteriaParam queryCriteriaParam) {
         String paramName = queryCriteriaParam.getName();
         Object value = queryCriteriaParam.getValue();
+        Object value2 = queryCriteriaParam.getValue2();
         String operation = queryCriteriaParam.getOperation();
 
         //paramName必须是build VO的属性
         //ParamName must be an attribute of build VO
-        if (!buildVODeclaredFieldNames.contains(paramName)) {
+        if (!buildEntityDeclaredFieldNames.contains(paramName)) {
             return;
         }
 
@@ -359,7 +471,7 @@ public class QueryCriteriaWrapperBuilder<T> {
                 break;
             default:
                 if (StringUtils.isNotBlank(operation)) {
-                    buildCriteriaAtParam(wrapper, paramName, value, operation);
+                    buildCriteriaAtParam(wrapper, paramName, operation, value, value2);
                 } else {
                     String paramColumnName = getColumn(paramName);
                     if (Objects.isNull(value)) {
@@ -380,10 +492,10 @@ public class QueryCriteriaWrapperBuilder<T> {
      * @param value     parameter value
      * @param operation parameter name @operation
      */
-    private void buildCriteriaAtParam(QueryWrapper<T> wrapper, String paramName, Object value, String operation) {
+    private void buildCriteriaAtParam(QueryWrapper<T> wrapper, String paramName, String operation, Object value, Object value2) {
         String paramColumnName = getColumn(paramName);
         switch (operation) {
-            case EQ_OPERATOR: {
+            case QueryCriteriaConstants.EQ_OPERATOR: {
                 if (Objects.isNull(value)) {
                     wrapper.isNull(paramColumnName);
                 } else {
@@ -391,7 +503,7 @@ public class QueryCriteriaWrapperBuilder<T> {
                 }
                 break;
             }
-            case NE_OPERATOR: {
+            case QueryCriteriaConstants.NE_OPERATOR: {
                 if (Objects.isNull(value)) {
                     wrapper.isNotNull(paramColumnName);
                 } else {
@@ -399,51 +511,55 @@ public class QueryCriteriaWrapperBuilder<T> {
                 }
                 break;
             }
-            case GE_OPERATOR: {
+            case QueryCriteriaConstants.GE_OPERATOR: {
                 wrapper.ge(paramColumnName, value);
                 break;
             }
-            case GT_OPERATOR: {
+            case QueryCriteriaConstants.GT_OPERATOR: {
                 wrapper.gt(paramColumnName, value);
                 break;
             }
-            case LE_OPERATOR: {
+            case QueryCriteriaConstants.LE_OPERATOR: {
                 wrapper.le(paramColumnName, value);
                 break;
             }
-            case LT_OPERATOR: {
+            case QueryCriteriaConstants.LT_OPERATOR: {
                 wrapper.lt(paramColumnName, value);
                 break;
             }
-            case BETWEEN_OPERATOR: {
-                String[] values = StringUtils.split(value.toString(), QueryCriteriaConstants.FIELD_DELIMITER);
-                if (values.length < 1) {
-                    throw new QueryCriteriaException("Between values should be two");
+            case QueryCriteriaConstants.BETWEEN_OPERATOR: {
+                if (Objects.isNull(value2)) {
+                    String[] values = StringUtils.split(value.toString(), QueryCriteriaConstants.FIELD_DELIMITER);
+                    if (values.length < 1) {
+                        throw new QueryCriteriaException("Between values should be two");
+                    }
+                    wrapper.between(paramColumnName, values[0], values[1]);
+                } else {
+                    wrapper.between(paramColumnName, value, value2);
                 }
-                wrapper.between(paramColumnName, values[0], values[1]);
                 break;
             }
-            case LIKE_OPERATOR: {
+            case QueryCriteriaConstants.LIKE_OPERATOR: {
                 wrapper.like(paramColumnName, value);
                 break;
             }
-            case NOT_LIKE_OPERATOR: {
+            case QueryCriteriaConstants.NOT_LIKE_OPERATOR: {
                 wrapper.notLike(paramColumnName, value);
                 break;
             }
-            case START_WITH_OPERATOR: {
+            case QueryCriteriaConstants.START_WITH_OPERATOR: {
                 wrapper.likeRight(paramColumnName, value);
                 break;
             }
-            case END_WITH_OPERATOR: {
+            case QueryCriteriaConstants.END_WITH_OPERATOR: {
                 wrapper.likeLeft(paramColumnName, value);
                 break;
             }
-            case IN_OPERATOR: {
+            case QueryCriteriaConstants.IN_OPERATOR: {
                 wrapper.in(paramColumnName, loadValueList(value));
                 break;
             }
-            case NOT_IN_OPERATOR: {
+            case QueryCriteriaConstants.NOT_IN_OPERATOR: {
                 wrapper.notIn(paramColumnName, loadValueList(value));
                 break;
             }

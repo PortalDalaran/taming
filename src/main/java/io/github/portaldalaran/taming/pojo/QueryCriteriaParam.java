@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class QueryCriteriaParam {
+
     /**
      * 名字
      */
@@ -26,4 +27,14 @@ public class QueryCriteriaParam {
      */
     private Object value;
 
+    /**
+     * 第二个值，用为between
+     */
+    private Object value2;
+
+    public QueryCriteriaParam(String name, String operation, Object value ) {
+        this.name = name;
+        this.operation = operation;
+        this.value = value;
+    }
 }

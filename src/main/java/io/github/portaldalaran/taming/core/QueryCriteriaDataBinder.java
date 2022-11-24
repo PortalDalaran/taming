@@ -173,7 +173,7 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
                     addCriteriaParams(queryChildCriteriaParams, key, null, entry.getValue().toString());
                 }
             }
-            criteriaParams.add(new QueryCriteriaParam(paramName, operation, queryChildCriteriaParams));
+            criteriaParams.add(new QueryCriteriaParam(paramName, operation, queryChildCriteriaParams, null));
         } else if (!QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.GROUP_BY_OPERATOR.equalsIgnoreCase(paramName)
                 && !QueryCriteriaConstants.ORDER_BY_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.HAVING_OPERATOR.equalsIgnoreCase(paramName)
                 && !QueryCriteriaConstants.PAGE_NO.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.PAGE_SIZE.equalsIgnoreCase(paramName)) {
