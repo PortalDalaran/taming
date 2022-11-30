@@ -5,6 +5,8 @@ import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
 import io.github.portaldalaran.taming.utils.JsonUtils;
 import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;

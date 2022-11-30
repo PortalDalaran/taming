@@ -1,6 +1,7 @@
 package io.github.portaldalaran.taming.pojo;
 
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
