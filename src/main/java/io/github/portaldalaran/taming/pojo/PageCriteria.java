@@ -14,7 +14,7 @@ import java.io.Serializable;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-public class PageCriteria extends QueryCriteria implements Serializable {
+public class PageCriteria<T> extends QueryCriteria<T> implements Serializable {
 
     private static final Integer PAGE_NO = 1;
     private static final Integer PAGE_SIZE = 15;

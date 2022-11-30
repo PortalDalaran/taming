@@ -14,12 +14,12 @@ import io.github.portaldalaran.talons.meta.AssociationFieldInfo;
 import io.github.portaldalaran.talons.meta.AssociationQueryField;
 import io.github.portaldalaran.talons.meta.AssociationTableInfo;
 import io.github.portaldalaran.talons.meta.AssociationType;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
-import io.github.portaldalaran.taming.utils.SqlUtils;
 import io.github.portaldalaran.taming.core.QueryCriteriaException;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
+import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.SqlUtils;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanWrapper;
@@ -35,7 +35,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -108,9 +107,9 @@ public class QueryCriteriaWrapperBuilder<T> {
         }
     }
 
-    public <V extends QueryCriteria> boolean build(V criteriaVO) {
+    public <V extends QueryCriteria<T>> boolean build(V criteriaVO) {
         buildEntityDeclaredFieldNames = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());
-        List<QueryCriteriaParam> queryCriteriaParams = criteriaVO.getCriteriaParams();
+        List<QueryCriteriaParam<T>> queryCriteriaParams = criteriaVO.getCriteriaParams();
         if (Objects.isNull(queryCriteriaParams)) {
             queryCriteriaParams = Lists.newArrayList();
         }
@@ -139,7 +138,7 @@ public class QueryCriteriaWrapperBuilder<T> {
      * @param <V>                 entity extends QueryCriteria or PageCriteria
      */
     @SneakyThrows
-    private <V extends QueryCriteria> void assembleCriteriaParamsByEntityValue(V criteriaVO, List<QueryCriteriaParam> queryCriteriaParams) {
+    private <V extends QueryCriteria<T>> void assembleCriteriaParamsByEntityValue(V criteriaVO, List<QueryCriteriaParam<T>> queryCriteriaParams) {
         //between dateField
         assembleDateFieldValue(criteriaVO, queryCriteriaParams);
 
@@ -152,14 +151,14 @@ public class QueryCriteriaWrapperBuilder<T> {
             if (isFieldName) {
                 Object srcValue = beanWrapper.getPropertyValue(fieldName);
                 if (Objects.nonNull(srcValue)) {
-                    QueryCriteriaParam queryCriteriaParam = queryCriteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(fieldName)).findFirst().orElse(null);
+                    QueryCriteriaParam<T> queryCriteriaParam = queryCriteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(fieldName)).findFirst().orElse(null);
                     //如果已经存在，则覆盖原来的值
                     //If it already exists, overwrite the original value
                     if (Objects.nonNull(queryCriteriaParam)) {
                         queryCriteriaParam.setValue(srcValue);
                         queryCriteriaParam.setValue2(null);
                     } else {
-                        queryCriteriaParams.add(new QueryCriteriaParam(fieldName, QueryCriteriaConstants.EQ_OPERATOR, srcValue, null));
+                        queryCriteriaParams.add(new QueryCriteriaParam<>(fieldName, QueryCriteriaConstants.EQ_OPERATOR, srcValue, null));
                     }
                 }
             }
@@ -167,7 +166,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
     }
 
-    private static <V extends QueryCriteria> void assembleDateFieldValue(V criteriaVO, List<QueryCriteriaParam> queryCriteriaParams) throws ParseException {
+    private <V extends QueryCriteria<T>> void assembleDateFieldValue(V criteriaVO, List<QueryCriteriaParam<T>> queryCriteriaParams) throws ParseException {
         //把日期的字段单独拿出来转换
         List<Field> dateFields = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).filter(field -> field.getType() == LocalDate.class
                 || field.getType() == LocalDateTime.class
@@ -175,7 +174,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
         // if date between
         for (Field dateField : dateFields) {
-            QueryCriteriaParam criteriaParam = queryCriteriaParams.stream().filter(param -> param.getName().equalsIgnoreCase(dateField.getName())).findFirst().orElse(null);
+            QueryCriteriaParam<T> criteriaParam = queryCriteriaParams.stream().filter(param -> param.getName().equalsIgnoreCase(dateField.getName())).findFirst().orElse(null);
             if (Objects.nonNull(criteriaParam) && criteriaParam.getValue() instanceof String) {
                 String dateValue = criteriaParam.getValue().toString();
                 if (dateValue.indexOf(QueryCriteriaConstants.FIELD_DELIMITER) > 0) {
@@ -427,6 +426,8 @@ public class QueryCriteriaWrapperBuilder<T> {
         queryWrapper.having(havingParams);
     }
 
+
+
     /**
      * 处理where条件，拼装到Mybatis的QueryWrapper中
      * Build where condition and assemble it into the QueryWrapper of Mybatis
@@ -435,7 +436,7 @@ public class QueryCriteriaWrapperBuilder<T> {
      * @param queryCriteriaParam request parameter Map
      */
     @SneakyThrows
-    private void buildCriteriaParam(QueryWrapper<T> wrapper, QueryCriteriaParam queryCriteriaParam) {
+    private void buildCriteriaParam(QueryWrapper<T> wrapper, QueryCriteriaParam<T> queryCriteriaParam) {
         String paramName = queryCriteriaParam.getName();
         Object value = queryCriteriaParam.getValue();
         Object value2 = queryCriteriaParam.getValue2();
@@ -443,7 +444,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
         //paramName必须是build VO的属性
         //ParamName must be an attribute of build VO
-        if (!buildEntityDeclaredFieldNames.contains(paramName)) {
+        if (!checkEntityAttribute(paramName)) {
             return;
         }
 
@@ -459,13 +460,13 @@ public class QueryCriteriaWrapperBuilder<T> {
         switch (paramName.toLowerCase()) {
             case QueryCriteriaConstants.OR_OPERATOR:
                 if (!Objects.isNull(value)) {
-                    List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) value;
+                    List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
                     wrapper.or(orWrapper -> queryChildCriteriaParams.forEach(param -> buildCriteriaParam(orWrapper, param)));
                 }
                 break;
             case QueryCriteriaConstants.AND_OPERATOR:
                 if (!Objects.isNull(value)) {
-                    List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) value;
+                    List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
                     wrapper.and(andWrapper -> queryChildCriteriaParams.forEach(param -> buildCriteriaParam(andWrapper, param)));
                 }
                 break;
@@ -567,7 +568,18 @@ public class QueryCriteriaWrapperBuilder<T> {
                 break;
         }
     }
-
+    /**
+     * paramName必须是build VO的属性,或者是or,and关键字
+     * ParamName must be an attribute of build VO，or is key {or,and}
+     * @param attributeName
+     * @return
+     */
+    private boolean checkEntityAttribute(String attributeName) {
+        if (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(attributeName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(attributeName)) {
+            return true;
+        }
+        return buildEntityDeclaredFieldNames.contains(attributeName);
+    }
     /**
      * 把以逗号分割的字符串转化为数据
      * Convert comma separated strings to data

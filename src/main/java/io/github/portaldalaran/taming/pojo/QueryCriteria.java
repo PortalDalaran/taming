@@ -10,7 +10,7 @@ import java.util.List;
  * @author aohee@163.com
  */
 @Data
-public class QueryCriteria {
+public class QueryCriteria<T> {
     /**
      * result fields
      */
@@ -24,5 +24,5 @@ public class QueryCriteria {
 
     private List<SelectAssociationFields> selectAssociationFields;
 
-    private List<QueryCriteriaParam> criteriaParams;
+    private List<QueryCriteriaParam<T>> criteriaParams;
 }

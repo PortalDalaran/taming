@@ -24,12 +24,16 @@ import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Rewrite according to ServletRequestDataBinder
+ *
  * @author david
  */
 public class QueryCriteriaDataBinder extends WebDataBinder {
+    private Pattern pattern = Pattern.compile("(?<=\\[).+?(?=\\])");
 
     /**
      * Create a new ServletRequestDataBinder instance, with default object name.
@@ -95,33 +99,38 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
             String paramName = paramNames.nextElement();
             String[] values = request.getParameterValues(paramName);
 
+            //比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式
+            EntityParamNames entityParamNames = buildParamNames(paramName);
+
             String operation = "";
             //是不是使用了自定义的查询条件，如果是则转化
             //Is the user-defined query criteria used? If so, convert it
-            if (paramName.contains("@")) {
-                String[] paramSplits = paramName.split("@");
-                paramName = paramSplits[0];
+            if (entityParamNames.paramName.contains("@")) {
+                String[] paramSplits = entityParamNames.paramName.split("@");
+                entityParamNames.paramName = paramSplits[0];
                 operation = paramSplits[1];
             }
 
             if (values == null || values.length == 0) {
                 // Do nothing, no values found at all.
-                addCriteriaParams(criteriaParams, paramName, operation, null);
+                addCriteriaParams(criteriaParams, entityParamNames, operation, null);
             } else if (values.length > 1) {
+                //如果是paramName是user[id]则继续
                 params.put(paramName, values);
-                addCriteriaParams(criteriaParams, paramName, operation, values);
+                addCriteriaParams(criteriaParams, entityParamNames, operation, values);
             } else {
+                //如果是paramName是user[id]则继续
                 params.put(paramName, values[0]);
-                addCriteriaParams(criteriaParams, paramName, operation, values[0]);
+                addCriteriaParams(criteriaParams, entityParamNames, operation, values[0]);
             }
 
             //是否有返回关联表字段
             //Whether there are returned associated table fields
-            if (QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(paramName) && paramName.contains(QueryCriteriaConstants.RELATION_DELIMITER)) {
-                String[] inputFieldsByRelation = StringUtils.split(paramName, QueryCriteriaConstants.RELATION_DELIMITER);
+            if (QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(entityParamNames.paramName) && entityParamNames.paramName.contains(QueryCriteriaConstants.RELATION_DELIMITER)) {
+                String[] inputFieldsByRelation = StringUtils.split(entityParamNames.paramName, QueryCriteriaConstants.RELATION_DELIMITER);
                 List<String> relationFieldNames = queryRelationFields.get(inputFieldsByRelation[0]);
                 if (Objects.isNull(relationFieldNames)) {
-                    relationFieldNames = Arrays.asList(inputFieldsByRelation[1]);
+                    relationFieldNames = Collections.singletonList(inputFieldsByRelation[1]);
                 } else {
                     relationFieldNames.add(inputFieldsByRelation[1]);
                 }
@@ -138,7 +147,6 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
         //拼装关联表字段
         //Assembling association table fields
         params.put("selectAssociationFields", selectAssociationFields);
-//        MutablePropertyValues mpvs = new ServletRequestParameterPropertyValues(request);
         MutablePropertyValues mpvs = new MutablePropertyValues(params);
 
         MultipartRequest multipartRequest = WebUtils.getNativeRequest(request, MultipartRequest.class);
@@ -154,34 +162,90 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
         doBind(mpvs);
     }
 
-    private void addCriteriaParams(List<QueryCriteriaParam> criteriaParams, String paramName, String operation, Object value) {
-        //如果是 or 和and则特殊处理
-        //Special treatment for or and
-        if (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(paramName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(paramName)) {
-            //value是对应{xxx:xxx}
+    /**
+     * 比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式
+     * 则把name处理了
+     *
+     * @param paramName
+     * @return
+     */
+    private EntityParamNames buildParamNames(String paramName) {
+        String prefixParamName = "";
+        Matcher matcher = pattern.matcher(paramName);
+        if (matcher.find()) {
+            prefixParamName = paramName.split("\\[")[0];
+            paramName = matcher.group(0);
+        }
+        return new EntityParamNames(prefixParamName, paramName);
+    }
+
+
+    /**
+     * 拼装
+     *
+     * @param criteriaParams
+     * @param entityParamNames
+     * @param operation
+     * @param value
+     */
+    private void addCriteriaParams(List<QueryCriteriaParam> criteriaParams, EntityParamNames entityParamNames, String operation, Object value) {
+        // 如果是比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式
+        if (entityParamNames.isOperatorByPrefixParamName()) {
+            QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
+            if (Objects.isNull(temp)) {
+                List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
+                //value是对应{xxx:xxx}或者直接值
+                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.prefixParamName, null, queryChildCriteriaParams));
+            } else {
+                List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
+                //value是对应{xxx:xxx}或者直接值
+                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
+                temp.setValue(queryChildCriteriaParams);
+            }
+        }else  if (entityParamNames.isOperatorByParamName()) {
+            //如果是 or 和and则特殊处理
+            //Special treatment for or and
+            QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByParamName(criteriaParams);
+            if (Objects.isNull(temp)) {
+                List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
+                //value是对应{xxx:xxx}或者直接值
+                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.paramName, null, queryChildCriteriaParams));
+            } else {
+                List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
+                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
+                temp.setValue(queryChildCriteriaParams);
+            }
+        } else if (entityParamNames.isNoneOperator()) {
+            //排除在QueryCriteria中的字段
+            //Fields excluded from QueryCriteria
+            criteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
+        }
+
+    }
+
+    private void buildParamValue(String paramName, String operation, Object value, List<QueryCriteriaParam> queryChildCriteriaParams) {
+        //value是对应{xxx:xxx}
+        if(value.toString().contains("{")){
             Map<String, Object> paramMap = JsonUtils.parseObject(value.toString(), new TypeReference<Map<String, Object>>() {
             });
-            List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
             for (Map.Entry<String, Object> entry : paramMap.entrySet()) {
                 String key = entry.getKey();
+                EntityParamNames prefixKey = buildParamNames(key);
                 //判断是否有操作符
                 //Determine whether there is an operator
                 if (key.contains(QueryCriteriaConstants.OPTION_DELIMITER)) {
                     String[] keySplits = key.split(QueryCriteriaConstants.OPTION_DELIMITER);
-                    addCriteriaParams(queryChildCriteriaParams, keySplits[0], keySplits[1], entry.getValue().toString());
+                    prefixKey.paramName = keySplits[0];
+                    addCriteriaParams(queryChildCriteriaParams, prefixKey, keySplits[1], entry.getValue());
                 } else {
-                    addCriteriaParams(queryChildCriteriaParams, key, null, entry.getValue().toString());
+                    addCriteriaParams(queryChildCriteriaParams, prefixKey, null, entry.getValue());
                 }
             }
-            criteriaParams.add(new QueryCriteriaParam(paramName, operation, queryChildCriteriaParams, null));
-        } else if (!QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.GROUP_BY_OPERATOR.equalsIgnoreCase(paramName)
-                && !QueryCriteriaConstants.ORDER_BY_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.HAVING_OPERATOR.equalsIgnoreCase(paramName)
-                && !QueryCriteriaConstants.PAGE_NO.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.PAGE_SIZE.equalsIgnoreCase(paramName)) {
-            //排除在QueryCriteria中的字段
-            //Fields excluded from QueryCriteria
-            criteriaParams.add(new QueryCriteriaParam(paramName, operation, value));
+        }else {
+            queryChildCriteriaParams.add(new QueryCriteriaParam(paramName, operation, value));
         }
-
     }
 
     protected void bindMultipart(Map<String, List<MultipartFile>> multipartFiles, MutablePropertyValues mpvs) {
@@ -239,4 +303,34 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
         }
     }
 
+
+    private class EntityParamNames {
+        public String prefixParamName;
+        public String paramName;
+
+        EntityParamNames(String prefixParamName, String paramName) {
+            this.prefixParamName = prefixParamName;
+            this.paramName = paramName;
+        }
+
+        public Boolean isOperatorByPrefixParamName() {
+            return (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(prefixParamName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(prefixParamName));
+        }
+
+        public Boolean isOperatorByParamName() {
+            return (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(paramName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(paramName));
+        }
+
+        public Boolean isNoneOperator(){
+           return (!QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.GROUP_BY_OPERATOR.equalsIgnoreCase(paramName)
+                    && !QueryCriteriaConstants.ORDER_BY_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.HAVING_OPERATOR.equalsIgnoreCase(paramName)
+                    && !QueryCriteriaConstants.PAGE_NO.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.PAGE_SIZE.equalsIgnoreCase(paramName));
+        }
+        public QueryCriteriaParam findQueryCriteriaByPrefixParamName(List<QueryCriteriaParam> criteriaParams) {
+            return criteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(prefixParamName)).findFirst().orElse(null);
+        }
+        public QueryCriteriaParam findQueryCriteriaByParamName(List<QueryCriteriaParam> criteriaParams) {
+            return criteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(paramName)).findFirst().orElse(null);
+        }
+    }
 }

@@ -1,6 +1,6 @@
 package io.github.portaldalaran.taming.pojo;
 
-import lombok.AllArgsConstructor;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -9,9 +9,8 @@ import lombok.NoArgsConstructor;
  * @author aohee@163.com
  */
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
-public class QueryCriteriaParam {
+public class QueryCriteriaParam<T> {
 
     /**
      * 名字
@@ -32,8 +31,21 @@ public class QueryCriteriaParam {
      */
     private Object value2;
 
+    private SFunction<T, ?> column;
+
     public QueryCriteriaParam(String name, String operation, Object value ) {
         this.name = name;
+        this.operation = operation;
+        this.value = value;
+    }
+    public QueryCriteriaParam(String name, String operation, Object value,Object value2 ) {
+        this.name = name;
+        this.operation = operation;
+        this.value = value;
+        this.value2 = value2;
+    }
+    public QueryCriteriaParam(SFunction<T, ?> column, String operation, Object value ) {
+        this.column = column;
         this.operation = operation;
         this.value = value;
     }
