@@ -6,7 +6,7 @@
 
     <groupId>io.github.portaldalaran</groupId>
     <artifactId>taming</artifactId>
-    <version>1.0.7</version>
+    <version>1.0.8</version>
     <packaging>jar</packaging>
     <name>${project.artifactId}</name>
     <description>
@@ -25,7 +25,7 @@
         <commons.lang3.version>3.12.0</commons.lang3.version>
         <guava.version>31.1-jre</guava.version>
         <fastjson.version>2.0.9</fastjson.version>
-        <portaldalaran.talons.version>1.0.6</portaldalaran.talons.version>
+        <portaldalaran.talons.version>1.0.7</portaldalaran.talons.version>
 
         <!-- 服务id 也就是setting.xml中的servers.server.id -->
         <serverId>ossrh</serverId>

@@ -14,17 +14,20 @@ import io.github.portaldalaran.talons.meta.AssociationFieldInfo;
 import io.github.portaldalaran.talons.meta.AssociationQueryField;
 import io.github.portaldalaran.talons.meta.AssociationTableInfo;
 import io.github.portaldalaran.talons.meta.AssociationType;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
-import io.github.portaldalaran.taming.utils.SqlUtils;
 import io.github.portaldalaran.taming.core.QueryCriteriaException;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
+import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.SqlUtils;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.util.Assert;
+import org.springframework.util.ConcurrentReferenceHashMap;
 
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Field;
@@ -35,7 +38,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -43,13 +45,14 @@ import java.util.stream.Collectors;
 /**
  * @author aohee@163.com
  */
+@Slf4j
 public class QueryCriteriaWrapperBuilder<T> {
 
     private List<AssociationQueryField> associationQueryFields = new ArrayList<>();
 
     private QueryWrapper<T> queryWrapper;
     private Class<T> modelClass;
-    private List<String> buildEntityDeclaredFieldNames;
+    private List<String> buildEntityFieldNames;
 
     public QueryCriteriaWrapperBuilder() {
         this.queryWrapper = new QueryWrapper<T>();
@@ -103,13 +106,53 @@ public class QueryCriteriaWrapperBuilder<T> {
         if (columns.containsKey(field.toUpperCase())) {
             return columns.get(field.toUpperCase()).getColumn();
         } else {
-            String msg = MessageFormat.format("the field `{0}` is not in entity. entity class <{1}>", field, clazz.getName());
-            throw new QueryCriteriaException(msg);
+            log.warn(MessageFormat.format("query field `{0}` not in entity column <{1}>", field, clazz.getName()));
+            return null;
         }
     }
 
+    private void addColumnToQueryFields(List<String> queryFields, String fieldName) {
+        String column = getColumn(fieldName);
+        if (StringUtils.isNotBlank(column) && !queryFields.contains(column)) {
+            queryFields.add(column);
+        }
+    }
+
+    private static final Map<Class<?>, List<Field>> declaredFieldsCache = new ConcurrentReferenceHashMap<>(256);
+
+    /**
+     * 取所有的field
+     * @param clazz
+     * @return
+     */
+    private List<Field> getAllDeclaredFields(Class<?> clazz) {
+        Assert.notNull(clazz, "Class must not be null");
+
+        List<Field> queryFields = declaredFieldsCache.get(clazz);
+        if (Objects.nonNull(queryFields) && queryFields.size() > 0) {
+            return queryFields;
+        }
+
+        Class<?> searchType = clazz;
+        queryFields = new ArrayList<>();
+        List<String> fieldNames = new ArrayList<>();
+        while (Object.class != searchType && searchType != null) {
+            Field[] fields = searchType.getDeclaredFields();
+            for (Field field : fields) {
+                if (!fieldNames.contains(field.getName())) {
+                    fieldNames.add(field.getName());
+                    queryFields.add(field);
+                }
+            }
+            searchType = searchType.getSuperclass();
+        }
+        declaredFieldsCache.put(clazz, queryFields);
+
+        return queryFields;
+    }
+
     public <V extends QueryCriteria<T>> boolean build(V criteriaVO) {
-        buildEntityDeclaredFieldNames = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());
+        buildEntityFieldNames = getAllDeclaredFields(criteriaVO.getClass()).stream().map(Field::getName).collect(Collectors.toList());
         List<QueryCriteriaParam<T>> queryCriteriaParams = criteriaVO.getCriteriaParams();
         if (Objects.isNull(queryCriteriaParams)) {
             queryCriteriaParams = Lists.newArrayList();
@@ -145,21 +188,23 @@ public class QueryCriteriaWrapperBuilder<T> {
 
         BeanWrapper beanWrapper = new BeanWrapperImpl(criteriaVO);
         PropertyDescriptor[] pds = beanWrapper.getPropertyDescriptors();
+        //过滤掉列表
+        List<Field> entityFields = getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> !Collection.class.isAssignableFrom(field.getType() ) && !Map.class.isAssignableFrom(field.getType() )).collect(Collectors.toList());
+        for (Field field : entityFields) {
+            boolean isFieldName = Arrays.stream(pds).anyMatch(pd -> pd.getName().equalsIgnoreCase(field.getName()));
 
-        for (String fieldName : buildEntityDeclaredFieldNames) {
-            boolean isFieldName = Arrays.stream(pds).anyMatch(pd -> pd.getName().equalsIgnoreCase(fieldName));
             //如果BeanWrapper中的字段在 field中
             if (isFieldName) {
-                Object srcValue = beanWrapper.getPropertyValue(fieldName);
+                Object srcValue = beanWrapper.getPropertyValue(field.getName());
                 if (Objects.nonNull(srcValue)) {
-                    QueryCriteriaParam<T> queryCriteriaParam = queryCriteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(fieldName)).findFirst().orElse(null);
+                    QueryCriteriaParam<T> queryCriteriaParam = queryCriteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(field.getName())).findFirst().orElse(null);
                     //如果已经存在，则覆盖原来的值
                     //If it already exists, overwrite the original value
                     if (Objects.nonNull(queryCriteriaParam)) {
                         queryCriteriaParam.setValue(srcValue);
                         queryCriteriaParam.setValue2(null);
                     } else {
-                        queryCriteriaParams.add(new QueryCriteriaParam<>(fieldName, QueryCriteriaConstants.EQ_OPERATOR, srcValue, null));
+                        queryCriteriaParams.add(new QueryCriteriaParam<>(field.getName(), QueryCriteriaConstants.EQ_OPERATOR, srcValue, null));
                     }
                 }
             }
@@ -169,7 +214,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
     private <V extends QueryCriteria<T>> void assembleDateFieldValue(V criteriaVO, List<QueryCriteriaParam<T>> queryCriteriaParams) throws ParseException {
         //把日期的字段单独拿出来转换
-        List<Field> dateFields = Arrays.stream(criteriaVO.getClass().getDeclaredFields()).filter(field -> field.getType() == LocalDate.class
+        List<Field> dateFields = getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> field.getType() == LocalDate.class
                 || field.getType() == LocalDateTime.class
                 || field.getType() == Date.class).collect(Collectors.toList());
 
@@ -279,12 +324,12 @@ public class QueryCriteriaWrapperBuilder<T> {
                 String m2oId = selectAssField.getEntityName() + "Id";
                 //改为不判断，直接加上，在后边有去掉重复的字段
                 //Add directly, and then there are fields to remove duplicates
-                queryFields.add(getColumn(m2oId));
+                addColumnToQueryFields(queryFields, m2oId);
             }
             //如果关联对象有多个关系字段，则要加入到查询的fields中
             //If the associated object has multiple relation fields, it should be added to the fields of the query
             List<JoinColumn> joinColumns = rsFieldInfo.getJoinColumns();
-            joinColumns.forEach(jc -> queryFields.add(getColumn(jc.name())));
+            joinColumns.forEach(jc -> addColumnToQueryFields(queryFields, jc.name()));
 
             AssociationQueryField assQueryField = new AssociationQueryField();
             assQueryField.setTableName(selectAssField.getEntityName());
@@ -299,12 +344,15 @@ public class QueryCriteriaWrapperBuilder<T> {
                 String calcFun = inputField.substring(0, inputField.indexOf("(")).trim();
                 String calcField = inputField.substring(inputField.indexOf("(") + 1, inputField.indexOf(")")).trim();
                 calcField = getColumn(calcField);
+                if (StringUtils.isBlank(calcField)) {
+                    continue;
+                }
                 if (!queryFields.contains(calcField)) {
                     queryFields.add(calcField);
                 }
                 queryFields.add(MessageFormat.format("{0}({1}) as {1}_{0}", calcFun, calcField));
             } else {
-                queryFields.add(getColumn(inputField));
+                addColumnToQueryFields(queryFields, inputField);
             }
         }
         return queryFields.stream().distinct().collect(Collectors.toList());
@@ -327,7 +375,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
             //paramName必须是build VO的属性
             //ParamName must be an attribute of build VO
-            if (!buildEntityDeclaredFieldNames.contains(groupByParam)) {
+            if (StringUtils.isBlank(groupByParam) || !buildEntityFieldNames.contains(groupByParam)) {
                 continue;
             }
 
@@ -356,17 +404,17 @@ public class QueryCriteriaWrapperBuilder<T> {
         String[] orders = orderBy.split(QueryCriteriaConstants.FIELD_DELIMITER);
         for (String order : orders) {
             String[] tempOrder = order.split(QueryCriteriaConstants.OPTION_DELIMITER);
-
+            String orderColumn = getColumn(tempOrder[0]);
             //paramName必须是build VO的属性
             //ParamName must be an attribute of build VO
-            if (!buildEntityDeclaredFieldNames.contains(tempOrder[0])) {
+            if (StringUtils.isBlank(orderColumn) || !buildEntityFieldNames.contains(tempOrder[0])) {
                 continue;
             }
 
             if (tempOrder[1].equalsIgnoreCase(QueryCriteriaConstants.DESC_OPERATOR)) {
-                queryWrapper.orderByDesc(getColumn(tempOrder[0]));
+                queryWrapper.orderByDesc(orderColumn);
             } else {
-                queryWrapper.orderByAsc(getColumn(tempOrder[0]));
+                queryWrapper.orderByAsc(orderColumn);
             }
         }
     }
@@ -389,13 +437,13 @@ public class QueryCriteriaWrapperBuilder<T> {
                 //如果是统计就要把中间的字段拿 来转换
                 //For statistics, the fields in the middle should be converted
                 String changStr = havingStr.substring(havingStr.indexOf("(") + 1, havingStr.indexOf(")")).trim();
-
+                String columnField = getColumn(changStr);
                 //paramName必须是build VO的属性
                 //ParamName must be an attribute of build VO
-                if (!buildEntityDeclaredFieldNames.contains(changStr)) {
+                if (StringUtils.isBlank(columnField) || !buildEntityFieldNames.contains(changStr)) {
                     continue;
                 }
-                havingStr = havingStr.replaceAll(changStr, getColumn(changStr));
+                havingStr = havingStr.replaceAll(changStr, columnField);
             } else {
                 String changStr = "";
                 //没有括号，则根据判断符号（>\<\>=\in\like）来判断
@@ -413,20 +461,19 @@ public class QueryCriteriaWrapperBuilder<T> {
                 } else if (havingStr.toLowerCase().indexOf("like") > 1) {
                     changStr = havingStr.substring(0, havingStr.toLowerCase().indexOf("like")).trim();
                 }
-
+                String columnField = getColumn(changStr);
                 //paramName必须是build VO的属性
                 //ParamName must be an attribute of build VO
-                if (!buildEntityDeclaredFieldNames.contains(changStr)) {
+                if (StringUtils.isBlank(columnField) || !buildEntityFieldNames.contains(changStr)) {
                     continue;
                 }
 
-                havingStr = havingStr.replaceAll(changStr, getColumn(changStr));
+                havingStr = havingStr.replaceAll(changStr, columnField);
             }
             havingColumns.add(havingStr);
         }
         queryWrapper.having(havingParams);
     }
-
 
 
     /**
@@ -476,6 +523,9 @@ public class QueryCriteriaWrapperBuilder<T> {
                     buildCriteriaAtParam(wrapper, paramName, operation, value, value2);
                 } else {
                     String paramColumnName = getColumn(paramName);
+                    if (StringUtils.isBlank(paramColumnName)) {
+                        return;
+                    }
                     if (Objects.isNull(value)) {
                         wrapper.isNull(paramColumnName);
                     } else {
@@ -496,6 +546,9 @@ public class QueryCriteriaWrapperBuilder<T> {
      */
     private void buildCriteriaAtParam(QueryWrapper<T> wrapper, String paramName, String operation, Object value, Object value2) {
         String paramColumnName = getColumn(paramName);
+        if (StringUtils.isBlank(paramColumnName)) {
+            return;
+        }
         switch (operation) {
             case QueryCriteriaConstants.EQ_OPERATOR: {
                 if (Objects.isNull(value)) {
@@ -569,9 +622,11 @@ public class QueryCriteriaWrapperBuilder<T> {
                 break;
         }
     }
+
     /**
      * paramName必须是build VO的属性,或者是or,and关键字
      * ParamName must be an attribute of build VO，or is key {or,and}
+     *
      * @param attributeName
      * @return
      */
@@ -579,8 +634,9 @@ public class QueryCriteriaWrapperBuilder<T> {
         if (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(attributeName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(attributeName)) {
             return true;
         }
-        return buildEntityDeclaredFieldNames.contains(attributeName);
+        return buildEntityFieldNames.contains(attributeName);
     }
+
     /**
      * 把以逗号分割的字符串转化为数据
      * Convert comma separated strings to data
