@@ -122,6 +122,7 @@ public class QueryCriteriaWrapperBuilder<T> {
 
     /**
      * 取所有的field
+     *
      * @param clazz
      * @return
      */
@@ -189,7 +190,7 @@ public class QueryCriteriaWrapperBuilder<T> {
         BeanWrapper beanWrapper = new BeanWrapperImpl(criteriaVO);
         PropertyDescriptor[] pds = beanWrapper.getPropertyDescriptors();
         //过滤掉列表
-        List<Field> entityFields = getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> !Collection.class.isAssignableFrom(field.getType() ) && !Map.class.isAssignableFrom(field.getType() )).collect(Collectors.toList());
+        List<Field> entityFields = getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> !Collection.class.isAssignableFrom(field.getType()) && !Map.class.isAssignableFrom(field.getType())).collect(Collectors.toList());
         for (Field field : entityFields) {
             boolean isFieldName = Arrays.stream(pds).anyMatch(pd -> pd.getName().equalsIgnoreCase(field.getName()));
 
@@ -644,16 +645,12 @@ public class QueryCriteriaWrapperBuilder<T> {
      * @param value parameter value
      * @return list<>
      */
-    private List<Object> loadValueList(Object value) {
-        String[] inValues = StringUtils.split(value.toString(), QueryCriteriaConstants.FIELD_DELIMITER);
-        List<Object> intList = new ArrayList<>();
-        try {
-            for (String inValue : inValues) {
-                intList.add(Integer.parseInt(inValue));
-            }
-        } catch (Exception e) {
-            intList = Arrays.asList(inValues);
+    private Object[] loadValueList(Object value) {
+        if (Collection.class.isAssignableFrom(value.getClass())) {
+            return ((Collection<?>) value).toArray();
         }
-        return intList;
+        String[] inValues = StringUtils.split(value.toString(), QueryCriteriaConstants.FIELD_DELIMITER);
+
+        return inValues;
     }
 }

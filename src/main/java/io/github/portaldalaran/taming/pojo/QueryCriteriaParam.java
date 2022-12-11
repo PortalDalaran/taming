@@ -45,6 +45,14 @@ public class QueryCriteriaParam<T> {
         this.value = value;
         this.value2 = value2;
     }
+
+    /**
+     * 后续的实现没有写，使用没效果
+     * @param column
+     * @param operation
+     * @param value
+     */
+    @Deprecated
     public QueryCriteriaParam(SFunction<T, ?> column, String operation, Object value ) {
         this.column = column;
         this.operation = operation;
