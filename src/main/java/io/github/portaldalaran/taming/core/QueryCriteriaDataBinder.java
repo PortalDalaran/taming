@@ -5,8 +5,6 @@ import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
 import io.github.portaldalaran.taming.utils.JsonUtils;
 import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -205,6 +203,18 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
                 buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
                 temp.setValue(queryChildCriteriaParams);
             }
+        } else if (entityParamNames.isApplySqlOperator()) {
+            //applySql[0]="date_format(dateColumn,'%Y-%m-%d') = {0}" , applySql[1]="2008-08-08"
+            QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
+            if (Objects.isNull(temp)) {
+                List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
+                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.prefixParamName, QueryCriteriaConstants.APPLY_SQL_OPERATOR, queryChildCriteriaParams));
+            } else {
+                List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
+                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
+                temp.setValue(queryChildCriteriaParams);
+            }
         } else if (entityParamNames.isOperatorByParamName()) {
             //如果是 or 和and则特殊处理
             //Special treatment for or and
@@ -221,7 +231,7 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
             }
         } else if (entityParamNames.isNoneOperator()) {
             // 排除users[0]:user1 users[1]:user2
-            if(!entityParamNames.isNumber()){
+            if (!entityParamNames.isNumber()) {
                 //排除在QueryCriteria中的字段
                 //Fields excluded from QueryCriteria
                 criteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
@@ -308,45 +318,4 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
         }
     }
 
-
-    private class EntityParamNames {
-        public String prefixParamName;
-        public String paramName;
-
-        EntityParamNames(String prefixParamName, String paramName) {
-            this.prefixParamName = prefixParamName;
-            this.paramName = paramName;
-        }
-
-        public Boolean isOperatorByPrefixParamName() {
-            return (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(prefixParamName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(prefixParamName));
-        }
-
-        public Boolean isOperatorByParamName() {
-            return (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(paramName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(paramName));
-        }
-
-        public Boolean isNoneOperator() {
-            return (!QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.GROUP_BY_OPERATOR.equalsIgnoreCase(paramName)
-                    && !QueryCriteriaConstants.ORDER_BY_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.HAVING_OPERATOR.equalsIgnoreCase(paramName)
-                    && !QueryCriteriaConstants.PAGE_NO.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.PAGE_SIZE.equalsIgnoreCase(paramName));
-        }
-
-        public Boolean isNumber() {
-            try {
-                Integer.parseInt(paramName);
-                return true;
-            } catch (Exception e) {
-                return false;
-            }
-        }
-
-        public QueryCriteriaParam findQueryCriteriaByPrefixParamName(List<QueryCriteriaParam> criteriaParams) {
-            return criteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(prefixParamName)).findFirst().orElse(null);
-        }
-
-        public QueryCriteriaParam findQueryCriteriaByParamName(List<QueryCriteriaParam> criteriaParams) {
-            return criteriaParams.stream().filter(params -> params.getName().equalsIgnoreCase(paramName)).findFirst().orElse(null);
-        }
-    }
 }
