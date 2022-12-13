@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.github.portaldalaran.taming.core.QueryCriteriaException;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.utils.BuildUtils;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 
@@ -12,8 +12,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * build where paramters
+ * @param <T>
+ */
 public class WhereParamsBuilder<T> {
-    private BuildHelper<T> buildHelper;
+    protected BuildHelper<T> buildHelper;
 
     public WhereParamsBuilder(BuildHelper<T> buildHelper) {
         this.buildHelper = buildHelper;
@@ -31,7 +35,6 @@ public class WhereParamsBuilder<T> {
     public void buildCriteriaParam(QueryWrapper<T> wrapper, QueryCriteriaParam<T> queryCriteriaParam) {
         String paramName = queryCriteriaParam.getName();
         Object value = queryCriteriaParam.getValue();
-        Object value2 = queryCriteriaParam.getValue2();
         String operation = queryCriteriaParam.getOperation();
 
         //paramName必须是build VO的属性
@@ -40,18 +43,18 @@ public class WhereParamsBuilder<T> {
             return;
         }
 
-        BuildUtils.checkSqlInjection(paramName, value);
+        BuildUtils.checkSqlInjection(paramName, queryCriteriaParam.getValues());
 
         //and 和 or字段特殊处理
         //Special handling of 'and' and 'or' fields
         switch (paramName.toLowerCase()) {
-            case QueryCriteriaConstants.OR_OPERATOR:
+            case QueryConstants.OR:
                 if (!Objects.isNull(value)) {
                     List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
                     wrapper.or(orWrapper -> queryChildCriteriaParams.forEach(param -> buildCriteriaParam(orWrapper, param)));
                 }
                 break;
-            case QueryCriteriaConstants.AND_OPERATOR:
+            case QueryConstants.AND:
                 if (!Objects.isNull(value)) {
                     List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
                     wrapper.and(andWrapper -> queryChildCriteriaParams.forEach(param -> buildCriteriaParam(andWrapper, param)));
@@ -59,7 +62,7 @@ public class WhereParamsBuilder<T> {
                 break;
             default:
                 if (StringUtils.isNotBlank(operation)) {
-                    buildCriteriaAtParam(wrapper, paramName, operation, value, value2);
+                    buildCriteriaAtParam(wrapper, paramName, operation, queryCriteriaParam.getValues());
                 } else {
                     String paramColumnName = buildHelper.getColumn(paramName);
                     if (StringUtils.isBlank(paramColumnName)) {
@@ -80,27 +83,27 @@ public class WhereParamsBuilder<T> {
      *
      * @param wrapper   query wrapper
      * @param paramName parameter name
-     * @param value     parameter value
+     * @param values    parameter value
      * @param operation parameter name @operation
      */
-    private void buildCriteriaAtParam(QueryWrapper<T> wrapper, String paramName, String operation, Object value, Object value2) {
+    private void buildCriteriaAtParam(QueryWrapper<T> wrapper, String paramName, String operation, Object... values) {
 
         if (isApplySqlOperator(paramName, operation)) {
-            Object[] values = BuildUtils.loadValueArrays(value);
-            if (values.length > 1) {
-                wrapper.apply(values[0].toString(), Arrays.copyOfRange(values, 1, values.length));
+            Object[] applyValues = values.length > 1 ? values : BuildUtils.loadValueArrays(values);
+            if (applyValues.length > 1) {
+                wrapper.apply(applyValues[0].toString(), Arrays.copyOfRange(applyValues, 1, applyValues.length));
             } else {
-                wrapper.apply(values[0].toString());
+                wrapper.apply(applyValues[0].toString());
             }
             return;
         }
-
+        Object value = values[0];
         String paramColumnName = buildHelper.getColumn(paramName);
         if (StringUtils.isBlank(paramColumnName)) {
             return;
         }
         switch (operation) {
-            case QueryCriteriaConstants.EQ_OPERATOR: {
+            case QueryConstants.EQ: {
                 if (Objects.isNull(value)) {
                     wrapper.isNull(paramColumnName);
                 } else {
@@ -108,7 +111,7 @@ public class WhereParamsBuilder<T> {
                 }
                 break;
             }
-            case QueryCriteriaConstants.NE_OPERATOR: {
+            case QueryConstants.NE: {
                 if (Objects.isNull(value)) {
                     wrapper.isNotNull(paramColumnName);
                 } else {
@@ -116,67 +119,69 @@ public class WhereParamsBuilder<T> {
                 }
                 break;
             }
-            case QueryCriteriaConstants.GE_OPERATOR: {
+            case QueryConstants.GE: {
                 wrapper.ge(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.GT_OPERATOR: {
+            case QueryConstants.GT: {
                 wrapper.gt(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.LE_OPERATOR: {
+            case QueryConstants.LE: {
                 wrapper.le(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.LT_OPERATOR: {
+            case QueryConstants.LT: {
                 wrapper.lt(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.BETWEEN_OPERATOR: {
-                if (Objects.isNull(value2)) {
-                    String[] values = StringUtils.split(value.toString(), QueryCriteriaConstants.FIELD_DELIMITER);
-                    if (values.length < 1) {
-                        throw new QueryCriteriaException("Between values should be two");
-                    }
-                    wrapper.between(paramColumnName, values[0], values[1]);
-                } else {
-                    wrapper.between(paramColumnName, value, value2);
+            case QueryConstants.BETWEEN: {
+                if (values.length < 2) {
+                    throw new QueryCriteriaException("Between values should be two");
                 }
+                wrapper.between(paramColumnName, values[0], values[1]);
                 break;
             }
-            case QueryCriteriaConstants.LIKE_OPERATOR: {
+            case QueryConstants.LIKE: {
                 wrapper.like(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.NOT_LIKE_OPERATOR: {
+            case QueryConstants.NOT_LIKE: {
                 wrapper.notLike(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.START_WITH_OPERATOR: {
+            case QueryConstants.START_WITH: {
                 wrapper.likeRight(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.END_WITH_OPERATOR: {
+            case QueryConstants.END_WITH: {
                 wrapper.likeLeft(paramColumnName, value);
                 break;
             }
-            case QueryCriteriaConstants.IN_OPERATOR: {
-                wrapper.in(paramColumnName, BuildUtils.loadValueArrays(value));
+            case QueryConstants.IN: {
+                if (values.length > 1) {
+                    wrapper.in(paramColumnName, values);
+                } else {
+                    wrapper.in(paramColumnName, BuildUtils.loadValueArrays(value));
+                }
                 break;
             }
-            case QueryCriteriaConstants.NOT_IN_OPERATOR: {
-                wrapper.notIn(paramColumnName, BuildUtils.loadValueArrays(value));
+            case QueryConstants.NOT_IN: {
+                if (values.length > 1) {
+                    wrapper.notIn(paramColumnName, values);
+                } else {
+                    wrapper.notIn(paramColumnName, BuildUtils.loadValueArrays(value));
+                }
                 break;
             }
-            case QueryCriteriaConstants.IN_SQL_OPERATOR: {
+            case QueryConstants.IN_SQL: {
                 wrapper.inSql(paramColumnName, value.toString());
                 break;
             }
-            case QueryCriteriaConstants.NOT_IN_SQL_OPERATOR: {
+            case QueryConstants.NOT_IN_SQL: {
                 wrapper.notInSql(paramColumnName, value.toString());
                 break;
             }
-
             default:
                 break;
         }
@@ -191,8 +196,8 @@ public class WhereParamsBuilder<T> {
      */
     private boolean isApplySqlOperator(String paramName, String operation) {
         if (StringUtils.isNotBlank(operation)) {
-            return operation.equalsIgnoreCase(QueryCriteriaConstants.APPLY_SQL_OPERATOR);
+            return operation.equalsIgnoreCase(QueryConstants.APPLY_SQL);
         }
-        return paramName.equalsIgnoreCase(QueryCriteriaConstants.APPLY_SQL_OPERATOR);
+        return paramName.equalsIgnoreCase(QueryConstants.APPLY_SQL);
     }
 }

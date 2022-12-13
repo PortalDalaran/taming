@@ -8,7 +8,7 @@ import io.github.portaldalaran.taming.builder.WhereParamsBuilder;
 import io.github.portaldalaran.taming.core.QueryCriteriaException;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.utils.ClassUtils;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -19,9 +19,9 @@ import java.util.Objects;
  */
 @Slf4j
 public class QueryCriteriaWrapperBuilder<T> {
-    private QueryWrapper<T> queryWrapper;
-    private Class<T> modelClass;
-    private BuildHelper<T> buildHelper;
+    protected QueryWrapper<T> queryWrapper;
+    protected Class<T> modelClass;
+    protected BuildHelper<T> buildHelper;
 
     public QueryCriteriaWrapperBuilder() {
         this.queryWrapper = new QueryWrapper<T>();
@@ -78,7 +78,7 @@ public class QueryCriteriaWrapperBuilder<T> {
         buildHelper.getQueryCriteriaParams().forEach(queryCriteriaParam -> whereParamsBuilder.buildCriteriaParam(queryWrapper, queryCriteriaParam));
 
         if (!queryFields.isEmpty()) {
-            queryWrapper.select(String.join(QueryCriteriaConstants.FIELD_DELIMITER, queryFields));
+            queryWrapper.select(String.join(QueryConstants.FIELD_DELIMITER, queryFields));
         }
         return true;
     }

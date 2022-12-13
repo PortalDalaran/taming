@@ -34,14 +34,14 @@ public class One2OneObjectsComparator<T, Q extends QueryCriteria> implements Com
         if (Objects.isNull(this.queryReqVO)) {
             return 0;
         }
-        String[] orders = queryReqVO.getOrderBy().split(QueryCriteriaConstants.FIELD_DELIMITER);
+        String[] orders = queryReqVO.getOrderBy().split(QueryConstants.FIELD_DELIMITER);
         List<Field> declareFields = Arrays.stream(tClazz.getDeclaredFields()).collect(Collectors.toList());
         List<String> fieldNames = declareFields.stream().map(Field::getName).collect(Collectors.toList());
         // 0的含义是在两个元素相同时，不交换顺序（为了排序算法的稳定性，可以使用1来代替0，不要用-1来代替0）
         int allSort = 0;
         for (String order : orders) {
             int sort = 0;
-            String[] tempOrder = order.split(QueryCriteriaConstants.OPTION_DELIMITER);
+            String[] tempOrder = order.split(QueryConstants.OPTION_DELIMITER);
             String paramName = tempOrder[0];
             //paramName必须是build VO的属性
             //ParamName must be an attribute of build VO
@@ -79,7 +79,7 @@ public class One2OneObjectsComparator<T, Q extends QueryCriteria> implements Com
                 } else {
                     sort = field.get(o1).toString().compareToIgnoreCase(field.get(o2).toString());
                 }
-                if (tempOrder[1].equalsIgnoreCase(QueryCriteriaConstants.DESC_OPERATOR)) {
+                if (tempOrder[1].equalsIgnoreCase(QueryConstants.DESC)) {
                     sort = sort == 0 ? 0 : sort == -1 ? 1 : -1;
                 }
                 allSort = allSort == 0 ? sort : allSort;

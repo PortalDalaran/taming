@@ -5,7 +5,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import io.github.portaldalaran.taming.core.QueryCriteriaException;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import io.github.portaldalaran.taming.utils.SqlUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -15,13 +15,14 @@ import java.util.Objects;
 
 /**
  * build group by and having parameters
+ * @author aohee@163.com
  * @param <V>
  * @param <T>
  */
 public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
-    private BuildHelper<T> buildHelper;
-    private QueryWrapper<T> queryWrapper;
-    private V criteriaVO;
+    protected BuildHelper<T> buildHelper;
+    protected QueryWrapper<T> queryWrapper;
+    protected V criteriaVO;
 
     public GroupParamsBuilder(QueryWrapper<T> queryWrapper, V criteriaVO, BuildHelper<T> buildHelper) {
         this.queryWrapper = queryWrapper;
@@ -41,7 +42,7 @@ public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
         List<String> groupByColumns = Lists.newArrayList();
         //如果用了groupBy在fields里自动加上 groupBy字段，groupBy字段Count
         //If groupBy is used, the groupBy field is automatically added to fields, and the groupBy field is Count
-        String[] groupBySplitParams = groupByParams.split(QueryCriteriaConstants.FIELD_DELIMITER);
+        String[] groupBySplitParams = groupByParams.split(QueryConstants.FIELD_DELIMITER);
         for (String groupByParam : groupBySplitParams) {
             groupByParam = buildHelper.getColumn(groupByParam);
 
@@ -78,7 +79,7 @@ public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
         //"分组条件(SQL)  ex:\"{having:\"sum(age)>18\"}\" --->SQL: having sum(age)>18"
         List<String> havingColumns = Lists.newArrayList();
 
-        String[] havingList = havingParams.split(QueryCriteriaConstants.FIELD_DELIMITER);
+        String[] havingList = havingParams.split(QueryConstants.FIELD_DELIMITER);
         for (String havingStr : havingList) {
             //有括号说明是统计
             //Parentheses indicate statistics

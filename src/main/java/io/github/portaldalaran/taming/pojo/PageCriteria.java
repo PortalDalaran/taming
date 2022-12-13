@@ -23,14 +23,14 @@ public class PageCriteria<T> extends QueryCriteria<T> implements Serializable {
      * 页码，从 1 开始
      *
      */
-    private Integer pageNo = PAGE_NO;
+    protected Integer pageNo = PAGE_NO;
 
 
     /**
      * 每页条数，最大值为 100
      * max 100
      */
-    private Integer pageSize = PAGE_SIZE;
+    protected Integer pageSize = PAGE_SIZE;
 
     public PageParam getPageParam() {
         return new PageParam(this.pageNo, this.pageSize);

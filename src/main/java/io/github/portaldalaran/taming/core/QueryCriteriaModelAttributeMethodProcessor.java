@@ -1,7 +1,7 @@
 package io.github.portaldalaran.taming.core;
 
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.TypeMismatchException;
@@ -255,8 +255,8 @@ public class QueryCriteriaModelAttributeMethodProcessor implements HandlerMethod
             String operation = "";
             //如果有操作
             //If there is operation
-            if (paramSourceName.contains(QueryCriteriaConstants.OPTION_DELIMITER)) {
-                String[] paramNameSplits = paramSourceName.split(QueryCriteriaConstants.OPTION_DELIMITER);
+            if (paramSourceName.contains(QueryConstants.OPTION_DELIMITER)) {
+                String[] paramNameSplits = paramSourceName.split(QueryConstants.OPTION_DELIMITER);
                 paramName = paramNameSplits[0];
                 operation = paramNameSplits[1];
             }

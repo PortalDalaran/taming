@@ -11,7 +11,7 @@ import io.github.portaldalaran.talons.meta.AssociationType;
 import io.github.portaldalaran.taming.core.QueryCriteriaException;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import io.github.portaldalaran.taming.utils.SqlUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  * @param <T>
  */
 public class ColumnsBuilder<T> {
-    private BuildHelper<T> buildHelper;
+    protected BuildHelper<T> buildHelper;
 
     public ColumnsBuilder(BuildHelper<T> buildHelper) {
         this.buildHelper = buildHelper;
@@ -78,7 +78,7 @@ public class ColumnsBuilder<T> {
             buildHelper.getAssociationQueryFields().add(assQueryField);
         }
 
-        String[] inputFieldList = fieldsParams.split(QueryCriteriaConstants.FIELD_DELIMITER);
+        String[] inputFieldList = fieldsParams.split(QueryConstants.FIELD_DELIMITER);
         for (String inputField : inputFieldList) {
             //ex: count(name)/sum(name)/min(name)
             if (inputField.contains("(")) {

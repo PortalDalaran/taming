@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
 import io.github.portaldalaran.taming.utils.JsonUtils;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -126,8 +126,8 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
 
             //是否有返回关联表字段
             //Whether there are returned associated table fields
-            if (QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(entityParamNames.paramName) && entityParamNames.paramName.contains(QueryCriteriaConstants.RELATION_DELIMITER)) {
-                String[] inputFieldsByRelation = StringUtils.split(entityParamNames.paramName, QueryCriteriaConstants.RELATION_DELIMITER);
+            if (QueryConstants.FIELDS.equalsIgnoreCase(entityParamNames.paramName) && entityParamNames.paramName.contains(QueryConstants.RELATION_DELIMITER)) {
+                String[] inputFieldsByRelation = StringUtils.split(entityParamNames.paramName, QueryConstants.RELATION_DELIMITER);
                 List<String> relationFieldNames = queryRelationFields.get(inputFieldsByRelation[0]);
                 if (Objects.isNull(relationFieldNames)) {
                     relationFieldNames = Collections.singletonList(inputFieldsByRelation[1]);
@@ -209,7 +209,7 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
             if (Objects.isNull(temp)) {
                 List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
                 queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
-                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.prefixParamName, QueryCriteriaConstants.APPLY_SQL_OPERATOR, queryChildCriteriaParams));
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.prefixParamName, QueryConstants.APPLY_SQL, queryChildCriteriaParams));
             } else {
                 List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
                 queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
@@ -250,8 +250,8 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
                 EntityParamNames prefixKey = buildParamNames(key);
                 //判断是否有操作符
                 //Determine whether there is an operator
-                if (key.contains(QueryCriteriaConstants.OPTION_DELIMITER)) {
-                    String[] keySplits = key.split(QueryCriteriaConstants.OPTION_DELIMITER);
+                if (key.contains(QueryConstants.OPTION_DELIMITER)) {
+                    String[] keySplits = key.split(QueryConstants.OPTION_DELIMITER);
                     prefixKey.paramName = keySplits[0];
                     addCriteriaParams(queryChildCriteriaParams, prefixKey, keySplits[1], entry.getValue());
                 } else {

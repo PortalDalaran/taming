@@ -5,7 +5,7 @@ import io.github.portaldalaran.talons.meta.AssociationQueryField;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.utils.BuildUtils;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -22,14 +22,14 @@ import java.util.stream.Collectors;
  */
 public class BuildHelper<T> {
     @Getter
-    private List<AssociationQueryField> associationQueryFields = new ArrayList<>();
+    protected List<AssociationQueryField> associationQueryFields = new ArrayList<>();
     @Getter
-    private Class<T> modelClass;
+    protected Class<T> modelClass;
     @Getter
-    private List<String> buildEntityFieldNames;
+    protected List<String> buildEntityFieldNames;
     @Setter
     @Getter
-    private List<QueryCriteriaParam<T>> queryCriteriaParams;
+    protected List<QueryCriteriaParam<T>> queryCriteriaParams;
 
     public BuildHelper(Class<T> modelClass) {
         this.modelClass = modelClass;
@@ -79,7 +79,7 @@ public class BuildHelper<T> {
      * @return
      */
     public boolean checkEntityAttribute(String attributeName) {
-        if (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(attributeName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(attributeName)) {
+        if (QueryConstants.OR.equalsIgnoreCase(attributeName) || QueryConstants.AND.equalsIgnoreCase(attributeName)) {
             return true;
         }
         return buildEntityFieldNames.contains(attributeName);

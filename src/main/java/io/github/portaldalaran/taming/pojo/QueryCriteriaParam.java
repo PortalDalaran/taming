@@ -1,12 +1,14 @@
 package io.github.portaldalaran.taming.pojo;
 
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Objects;
+
 /**
  * query criteria ex {name@eq: david}
+ *
  * @author aohee@163.com
  */
 @Data
@@ -22,40 +24,41 @@ public class QueryCriteriaParam<T> {
      * eq,ne
      */
     private String operation;
-    /**
-     * 值
-     */
-    private Object value;
 
-    /**
-     * 第二个值，用为between
-     */
-    private Object value2;
-
+    private Object[] values;
     private SFunction<T, ?> column;
 
-    public QueryCriteriaParam(String name, String operation, Object value ) {
+    public QueryCriteriaParam(String name, String operation, Object... values) {
         this.name = name;
         this.operation = operation;
-        this.value = value;
-    }
-    public QueryCriteriaParam(String name, String operation, Object value,Object value2 ) {
-        this.name = name;
-        this.operation = operation;
-        this.value = value;
-        this.value2 = value2;
+        this.values = values;
+
     }
 
     /**
      * 后续的实现没有写，使用没效果
+     *
      * @param column
      * @param operation
-     * @param value
+     * @param values
      */
     @Deprecated
-    public QueryCriteriaParam(SFunction<T, ?> column, String operation, Object value ) {
+    public QueryCriteriaParam(SFunction<T, ?> column, String operation, Object... values) {
         this.column = column;
         this.operation = operation;
-        this.value = value;
+        this.values = values;
+    }
+
+    public void setValue(Object... values) {
+        this.values = values;
+    }
+
+
+    public Object getValue() {
+        return Objects.nonNull(this.values) ? this.values[0] : null;
+    }
+
+    public Object getValue2() {
+        return Objects.nonNull(this.values) && this.values.length > 1 ? this.values[1] : null;
     }
 }

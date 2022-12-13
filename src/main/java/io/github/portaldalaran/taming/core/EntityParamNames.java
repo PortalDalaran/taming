@@ -1,7 +1,7 @@
 package io.github.portaldalaran.taming.core;
 
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 
 import java.util.List;
 
@@ -18,21 +18,21 @@ public class EntityParamNames {
      * @return
      */
     public Boolean isOperatorByPrefixParamName() {
-        return (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(prefixParamName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(prefixParamName));
+        return (QueryConstants.OR.equalsIgnoreCase(prefixParamName) || QueryConstants.AND.equalsIgnoreCase(prefixParamName));
     }
 
     public Boolean isOperatorByParamName() {
-        return (QueryCriteriaConstants.OR_OPERATOR.equalsIgnoreCase(paramName) || QueryCriteriaConstants.AND_OPERATOR.equalsIgnoreCase(paramName));
+        return (QueryConstants.OR.equalsIgnoreCase(paramName) || QueryConstants.AND.equalsIgnoreCase(paramName));
     }
 
     public Boolean isApplySqlOperator() {
-        return QueryCriteriaConstants.APPLY_SQL_OPERATOR.equalsIgnoreCase(prefixParamName);
+        return QueryConstants.APPLY_SQL.equalsIgnoreCase(prefixParamName);
     }
 
     public Boolean isNoneOperator() {
-        return (!QueryCriteriaConstants.FIELDS_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.GROUP_BY_OPERATOR.equalsIgnoreCase(paramName)
-                && !QueryCriteriaConstants.ORDER_BY_OPERATOR.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.HAVING_OPERATOR.equalsIgnoreCase(paramName)
-                && !QueryCriteriaConstants.PAGE_NO.equalsIgnoreCase(paramName) && !QueryCriteriaConstants.PAGE_SIZE.equalsIgnoreCase(paramName));
+        return (!QueryConstants.FIELDS.equalsIgnoreCase(paramName) && !QueryConstants.GROUP_BY.equalsIgnoreCase(paramName)
+                && !QueryConstants.ORDER_BY.equalsIgnoreCase(paramName) && !QueryConstants.HAVING.equalsIgnoreCase(paramName)
+                && !QueryConstants.PAGE_NO.equalsIgnoreCase(paramName) && !QueryConstants.PAGE_SIZE.equalsIgnoreCase(paramName));
     }
 
     public Boolean isNumber() {

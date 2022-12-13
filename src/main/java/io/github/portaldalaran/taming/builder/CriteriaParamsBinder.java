@@ -6,8 +6,9 @@ import com.google.common.collect.Lists;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.utils.BuildUtils;
-import io.github.portaldalaran.taming.utils.QueryCriteriaConstants;
+import io.github.portaldalaran.taming.utils.QueryConstants;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
@@ -22,13 +23,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * assemble QueryCriteria form CriteriaVO
  */
-public class CriteriaParamsBinder<V extends QueryCriteria<T>,T> {
-    private V criteriaVO;
-    private BuildHelper<T> buildHelper;
+@Slf4j
+public class CriteriaParamsBinder<V extends QueryCriteria<T>, T> {
+    protected V criteriaVO;
+    protected BuildHelper<T> buildHelper;
+protected List<QueryCriteriaParam<T>> queryCriteriaParams;
     public CriteriaParamsBinder(V criteriaVO, BuildHelper<T> buildHelper) {
         this.criteriaVO = criteriaVO;
         this.buildHelper = buildHelper;
@@ -42,18 +46,18 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>,T> {
      */
     @SneakyThrows
     public V assembleCriteriaParamsByEntityValue() {
-        List<QueryCriteriaParam<T>> queryCriteriaParams = criteriaVO.getCriteriaParams();
+        queryCriteriaParams = criteriaVO.getCriteriaParams();
         if (Objects.isNull(queryCriteriaParams)) {
             queryCriteriaParams = Lists.newArrayList();
         }
 
         //between dateField
-        assembleDateFieldValue(criteriaVO, queryCriteriaParams);
+        assembleDateFieldValue();
 
         BeanWrapper beanWrapper = new BeanWrapperImpl(criteriaVO);
         PropertyDescriptor[] pds = beanWrapper.getPropertyDescriptors();
         //过滤掉列表
-        List<Field> entityFields =  BuildUtils.getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> !Collection.class.isAssignableFrom(field.getType()) && !Map.class.isAssignableFrom(field.getType())).collect(Collectors.toList());
+        List<Field> entityFields = BuildUtils.getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> !Collection.class.isAssignableFrom(field.getType()) && !Map.class.isAssignableFrom(field.getType())).collect(Collectors.toList());
         for (Field field : entityFields) {
             boolean isFieldName = Arrays.stream(pds).anyMatch(pd -> pd.getName().equalsIgnoreCase(field.getName()));
 
@@ -65,10 +69,9 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>,T> {
                     //如果已经存在，则覆盖原来的值
                     //If it already exists, overwrite the original value
                     if (Objects.nonNull(queryCriteriaParam)) {
-                        queryCriteriaParam.setValue(srcValue);
-                        queryCriteriaParam.setValue2(null);
+                        queryCriteriaParam.setValue(srcValue, null);
                     } else {
-                        queryCriteriaParams.add(new QueryCriteriaParam<>(field.getName(), QueryCriteriaConstants.EQ_OPERATOR, srcValue, null));
+                        queryCriteriaParams.add(new QueryCriteriaParam<>(field.getName(), QueryConstants.EQ, srcValue, null));
                     }
                 }
             }
@@ -79,9 +82,9 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>,T> {
     }
 
 
-    private  <V extends QueryCriteria<T>,T> void assembleDateFieldValue(V criteriaVO, List<QueryCriteriaParam<T>> queryCriteriaParams) throws ParseException {
+    private void assembleDateFieldValue() {
         //把日期的字段单独拿出来转换
-        List<Field> dateFields =  BuildUtils.getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> field.getType() == LocalDate.class
+        List<Field> dateFields = BuildUtils.getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> field.getType() == LocalDate.class
                 || field.getType() == LocalDateTime.class
                 || field.getType() == Date.class).collect(Collectors.toList());
 
@@ -89,38 +92,28 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>,T> {
         for (Field dateField : dateFields) {
             QueryCriteriaParam<T> criteriaParam = queryCriteriaParams.stream().filter(param -> param.getName().equalsIgnoreCase(dateField.getName())).findFirst().orElse(null);
             if (Objects.nonNull(criteriaParam) && criteriaParam.getValue() instanceof String) {
-                String dateValue = criteriaParam.getValue().toString();
-                if (dateValue.indexOf(QueryCriteriaConstants.FIELD_DELIMITER) > 0) {
-                    String[] tempValues = dateValue.split(QueryCriteriaConstants.FIELD_DELIMITER);
-                    criteriaParam.setValue(tempValues[0]);
-                    criteriaParam.setValue2(tempValues[1]);
-                }
-
-                if (LocalDate.class == dateField.getType()) {
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd"));
-                    criteriaParam.setValue(LocalDate.parse(((String) criteriaParam.getValue()).trim(), formatter));
-                    if (Objects.nonNull(criteriaParam.getValue2())) {
-                        criteriaParam.setValue2(LocalDate.parse(criteriaParam.getValue2().toString(), formatter));
+                String[] dateValues = criteriaParam.getValue().toString().split(QueryConstants.FIELD_DELIMITER);
+                Object[] values = Stream.of(dateValues).map(obj -> {
+                    if (LocalDate.class == dateField.getType()) {
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd"));
+                        return LocalDate.parse(obj.toString(), formatter);
+                    } else if (LocalDateTime.class == dateField.getType()) {
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
+                        return LocalDateTime.parse(obj.toString(), formatter);
+                    } else {
+                        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
+                        try {
+                            return simpleDateFormat.parse(obj.toString());
+                        } catch (ParseException e) {
+                            log.error("转换日期出错", e);
+                            return null;
+                        }
                     }
-                } else if (LocalDateTime.class == dateField.getType()) {
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
-
-                    criteriaParam.setValue(LocalDateTime.parse(criteriaParam.getValue().toString(), formatter));
-                    if (Objects.nonNull(criteriaParam.getValue2())) {
-                        criteriaParam.setValue2(LocalDateTime.parse(criteriaParam.getValue2().toString(), formatter));
-                    }
-                } else {
-                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
-
-                    criteriaParam.setValue(simpleDateFormat.parse(criteriaParam.getValue().toString()));
-                    if (Objects.nonNull(criteriaParam.getValue2())) {
-                        criteriaParam.setValue2(simpleDateFormat.parse(criteriaParam.getValue2().toString()));
-                    }
-                }
+                }).toArray();
+                criteriaParam.setValue(values);
             }
         }
     }
-
 
 
     /**

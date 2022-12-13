@@ -3,6 +3,7 @@ package io.github.portaldalaran.taming.utils;
 /**
  * @author aohee@163.com
  */
+@Deprecated
 public class QueryCriteriaConstants {
     public static final String OR_OPERATOR = "or";
     public static final String AND_OPERATOR = "and";

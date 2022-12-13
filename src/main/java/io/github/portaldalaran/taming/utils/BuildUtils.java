@@ -79,17 +79,20 @@ public class BuildUtils {
         if (Collection.class.isAssignableFrom(value.getClass())) {
             return ((Collection<?>) value).toArray();
         }
-        String[] inValues = StringUtils.split(value.toString(), QueryCriteriaConstants.FIELD_DELIMITER);
+        String[] inValues = StringUtils.split(value.toString(), QueryConstants.FIELD_DELIMITER);
 
         return inValues;
     }
 
-    public static void checkSqlInjection(String paramName, Object value) {
+    public static void checkSqlInjection(String paramName, Object ...values) {
         if (SqlUtils.checkSqlInjection(paramName)) {
             throw new QueryCriteriaException("Query parameter SQL injection verification failed");
         }
-        if (value != null && SqlUtils.checkSqlInjection(value.toString())) {
-            throw new QueryCriteriaException("Query parameter SQL injection verification failed");
+        for (Object value : values) {
+            if (value != null && SqlUtils.checkSqlInjection(value.toString())) {
+                throw new QueryCriteriaException("Query parameter SQL injection verification failed");
+            }
         }
+
     }
 }
