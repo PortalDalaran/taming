@@ -1,5 +1,6 @@
 package io.github.portaldalaran.taming.pojo;
 
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -12,7 +13,7 @@ import java.util.Objects;
  * @author aohee@163.com
  */
 @Data
-public class QueryCriteria<T> {
+public abstract class QueryCriteria<T> {
     /**
      * result fields
      */
@@ -39,6 +40,13 @@ public class QueryCriteria<T> {
         if (Objects.isNull(criteriaParams)) {
             criteriaParams = new ArrayList<>();
         }
-        criteriaParams.add(new QueryCriteriaParam<T>(name, operation, values));
+        criteriaParams.add(new QueryCriteriaParam<>(name, operation, values));
+    }
+
+    public void addQueryCriteriaParam(SFunction<T, String> column, String operation, Object... values) {
+        if (Objects.isNull(criteriaParams)) {
+            criteriaParams = new ArrayList<>();
+        }
+        criteriaParams.add(new QueryCriteriaParam<>(column, operation, values));
     }
 }

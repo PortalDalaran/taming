@@ -1,6 +1,8 @@
 package io.github.portaldalaran.taming.pojo;
 
+import com.baomidou.mybatisplus.core.conditions.ISqlSegment;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import io.github.portaldalaran.taming.utils.BuildUtils;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -42,9 +44,9 @@ public class QueryCriteriaParam<T> {
      * @param operation
      * @param values
      */
-    @Deprecated
     public QueryCriteriaParam(SFunction<T, ?> column, String operation, Object... values) {
         this.column = column;
+        this.name = BuildUtils.getFieldName(column);
         this.operation = operation;
         this.values = values;
     }
@@ -61,4 +63,5 @@ public class QueryCriteriaParam<T> {
     public Object getValue2() {
         return Objects.nonNull(this.values) && this.values.length > 1 ? this.values[1] : null;
     }
+
 }

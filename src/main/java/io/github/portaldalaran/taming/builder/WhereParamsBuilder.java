@@ -14,6 +14,7 @@ import java.util.Objects;
 
 /**
  * build where paramters
+ *
  * @param <T>
  */
 public class WhereParamsBuilder<T> {
@@ -36,6 +37,10 @@ public class WhereParamsBuilder<T> {
         String paramName = queryCriteriaParam.getName();
         Object value = queryCriteriaParam.getValue();
         String operation = queryCriteriaParam.getOperation();
+
+        if (Objects.nonNull(queryCriteriaParam.getColumn()) && StringUtils.isBlank(paramName)) {
+            paramName = BuildUtils.getFieldName(queryCriteriaParam.getColumn());
+        }
 
         //paramName必须是build VO的属性
         //ParamName must be an attribute of build VO, Ignore apply operation!!

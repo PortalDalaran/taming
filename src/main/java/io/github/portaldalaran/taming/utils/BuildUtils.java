@@ -2,20 +2,26 @@ package io.github.portaldalaran.taming.utils;
 
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.core.toolkit.support.ColumnCache;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import com.google.common.collect.Lists;
 import io.github.portaldalaran.taming.core.QueryCriteriaException;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.Assert;
 import org.springframework.util.ConcurrentReferenceHashMap;
 
+import java.lang.invoke.SerializedLambda;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.text.MessageFormat;
 import java.util.*;
 
 @Slf4j
 public class BuildUtils {
 
-    private static final Map<Class<?>, List<Field>> declaredFieldsCache = new ConcurrentReferenceHashMap<>(256);
+    private static Map<Class<?>, List<Field>> declaredFieldsCache = new ConcurrentReferenceHashMap<>(256);
+    private static final List<String> CommonFields = Lists.newArrayList("orderBby", "pageno", "pagesize", "groupby", "having", "fields");
 
     /**
      * 返回Mysql字段
@@ -30,7 +36,10 @@ public class BuildUtils {
         if (columns.containsKey(field.toUpperCase())) {
             return columns.get(field.toUpperCase()).getColumn();
         } else {
-            log.warn(MessageFormat.format("query field `{0}` not in entity column <{1}>", field, clazz.getName()));
+            //ignore common fields
+            if (!CommonFields.contains(field.toLowerCase())) {
+                log.warn(MessageFormat.format("query field `{0}` not in entity column <{1}>", field, clazz.getName()));
+            }
             return null;
         }
     }
@@ -84,7 +93,7 @@ public class BuildUtils {
         return inValues;
     }
 
-    public static void checkSqlInjection(String paramName, Object ...values) {
+    public static void checkSqlInjection(String paramName, Object... values) {
         if (SqlUtils.checkSqlInjection(paramName)) {
             throw new QueryCriteriaException("Query parameter SQL injection verification failed");
         }
@@ -94,5 +103,24 @@ public class BuildUtils {
             }
         }
 
+    }
+
+    public static <T> String getFieldName(SFunction<T, ?> column) {
+        SerializedLambda serializedLambda = getSerializedLambda(column);
+        String methodName = serializedLambda.getImplMethodName();
+        if (methodName.startsWith("get")) {
+            methodName = methodName.substring("get".length());
+        }
+        return CharSequenceUtils.lowerFirst(methodName);
+    }
+
+    @SneakyThrows
+    private static <T> SerializedLambda getSerializedLambda(SFunction<T, ?> column) {
+        Method method = column.getClass().getDeclaredMethod("writeReplace");
+        boolean isAccessible = method.isAccessible();
+        method.setAccessible(true);
+        SerializedLambda serializedLambda = (SerializedLambda) method.invoke(column);
+        method.setAccessible(isAccessible);
+        return serializedLambda;
     }
 }
