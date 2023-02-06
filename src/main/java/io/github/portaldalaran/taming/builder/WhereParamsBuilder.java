@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * build where paramters
@@ -32,6 +33,16 @@ public class WhereParamsBuilder<T> {
             paramName = BuildUtils.getFieldName(queryCriteriaParam.getColumn());
         }
         return paramName;
+    }
+
+    private Boolean prepareCheckParamName(List<QueryCriteriaParam<T>> list) {
+        for (QueryCriteriaParam<T> queryCriteriaParam : list) {
+            boolean checked = prepareCheckParamName(queryCriteriaParam);
+            if (!checked) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Boolean prepareCheckParamName(QueryCriteriaParam<T> queryCriteriaParam) {
@@ -83,42 +94,54 @@ public class WhereParamsBuilder<T> {
 
         BuildUtils.checkSqlInjection(paramName, queryCriteriaParam.getValues());
 
+        AtomicBoolean result = new AtomicBoolean(true);
         //and 和 or字段特殊处理
         //Special handling of 'and' and 'or' fields
         switch (paramName.toLowerCase()) {
             case QueryConstants.NESTED:
                 if (!Objects.isNull(value)) {
                     List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
-                    queryChildCriteriaParams.forEach(param -> {
-                        boolean succeed = prepareCheckParamName(param);
-                        if (succeed) {
-                            wrapper.nested(nWrapper -> buildCriteriaParam(nWrapper, param));
-                        }
-                    });
-                    return true;
+                    boolean succeed = prepareCheckParamName(queryChildCriteriaParams);
+                    if (succeed) {
+                        wrapper.nested(nWrapper -> queryChildCriteriaParams.forEach(param -> {
+                            if (Boolean.FALSE.equals(buildCriteriaParam(nWrapper, param))) {
+                                result.set(false);
+                            }
+                        }));
+                    } else {
+                        result.set(false);
+                    }
                 }
                 break;
             case QueryConstants.OR:
                 if (!Objects.isNull(value)) {
                     List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
-                    queryChildCriteriaParams.forEach(param -> {
-                        boolean succeed = prepareCheckParamName(param);
-                        if (succeed) {
-                            wrapper.or(orWrapper -> buildCriteriaParam(orWrapper, param));
-                        }
-                    });
-                    return true;
+                    boolean succeed = prepareCheckParamName(queryChildCriteriaParams);
+                    if (succeed) {
+                        wrapper.or(orWrapper -> queryChildCriteriaParams.forEach(param -> {
+                            if (Boolean.FALSE.equals(buildCriteriaParam(orWrapper, param))) {
+                                result.set(false);
+                            }
+                        }));
+                    } else {
+                        result.set(false);
+                    }
                 }
                 break;
             case QueryConstants.AND:
                 if (!Objects.isNull(value)) {
                     List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
-                    queryChildCriteriaParams.forEach(param -> {
-                        boolean succeed = prepareCheckParamName(param);
-                        if (succeed) {
-                            wrapper.and(andWrapper -> buildCriteriaParam(andWrapper, param));
-                        }
-                    });
+                    boolean succeed = prepareCheckParamName(queryChildCriteriaParams);
+                    if (succeed) {
+                        wrapper.and(andWrapper -> queryChildCriteriaParams.forEach(param -> {
+                            if (Boolean.FALSE.equals(buildCriteriaParam(andWrapper, param))) {
+                                result.set(false);
+                            }
+                        }));
+                    } else {
+                        result.set(false);
+                    }
+
                 }
                 break;
             default:
@@ -137,7 +160,7 @@ public class WhereParamsBuilder<T> {
                     return true;
                 }
         }
-        return false;
+        return result.get();
     }
 
     /**
