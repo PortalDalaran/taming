@@ -18,11 +18,11 @@ public class EntityParamNames {
      * @return
      */
     public Boolean isOperatorByPrefixParamName() {
-        return (QueryConstants.OR.equalsIgnoreCase(prefixParamName) || QueryConstants.AND.equalsIgnoreCase(prefixParamName));
+        return (QueryConstants.OR.equalsIgnoreCase(prefixParamName) || QueryConstants.AND.equalsIgnoreCase(prefixParamName) || QueryConstants.NESTED.equalsIgnoreCase(prefixParamName));
     }
 
     public Boolean isOperatorByParamName() {
-        return (QueryConstants.OR.equalsIgnoreCase(paramName) || QueryConstants.AND.equalsIgnoreCase(paramName));
+        return (QueryConstants.OR.equalsIgnoreCase(paramName) || QueryConstants.AND.equalsIgnoreCase(paramName) || QueryConstants.NESTED.equalsIgnoreCase(paramName));
     }
 
     public Boolean isApplySqlOperator() {

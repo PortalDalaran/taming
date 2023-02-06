@@ -3,6 +3,7 @@ package io.github.portaldalaran.taming.utils;
 public class QueryConstants  {
     public static final String OR = "or";
     public static final String AND = "and";
+    public static final String NESTED = "nested";
     /**
      * ex: {applySql: ['id > age']} ---> id > age
      * applySql: ["date_format(dateColumn,'%Y-%m-%d') = {0}", "2008-08-08"] --->date_format(dateColumn,'%Y-%m-%d') = '2008-08-08'")

@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -24,6 +25,42 @@ public class WhereParamsBuilder<T> {
         this.buildHelper = buildHelper;
     }
 
+    private String getParamName(QueryCriteriaParam<T> queryCriteriaParam) {
+        String paramName = queryCriteriaParam.getName();
+
+        if (Objects.nonNull(queryCriteriaParam.getColumn()) && StringUtils.isBlank(paramName)) {
+            paramName = BuildUtils.getFieldName(queryCriteriaParam.getColumn());
+        }
+        return paramName;
+    }
+
+    private Boolean prepareCheckParamName(QueryCriteriaParam<T> queryCriteriaParam) {
+        String paramName = getParamName(queryCriteriaParam);
+        String operation = queryCriteriaParam.getOperation();
+
+        //paramName必须是build VO的属性
+        //ParamName must be an attribute of build VO, Ignore apply operation!!
+        if (!isApplySqlOperator(paramName, operation) && !buildHelper.checkEntityAttribute(paramName)) {
+            return false;
+        }
+
+        BuildUtils.checkSqlInjection(paramName, queryCriteriaParam.getValues());
+
+        //如果value是List<QueryCriteriaParam<T>> 则一直下挖
+        if (Collection.class.isAssignableFrom(queryCriteriaParam.getValue().getClass())) {
+            List<?> tempList = (List<?>) queryCriteriaParam.getValue();
+            if (!tempList.isEmpty() && tempList.get(0) instanceof QueryCriteriaParam<?>) {
+                List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) queryCriteriaParam.getValue();
+                for (QueryCriteriaParam<T> child : queryChildCriteriaParams) {
+                    boolean checked = prepareCheckParamName(child);
+                    if (!checked) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
 
     /**
      * 处理where条件，拼装到Mybatis的QueryWrapper中
@@ -33,19 +70,15 @@ public class WhereParamsBuilder<T> {
      * @param queryCriteriaParam request parameter Map
      */
     @SneakyThrows
-    public void buildCriteriaParam(QueryWrapper<T> wrapper, QueryCriteriaParam<T> queryCriteriaParam) {
-        String paramName = queryCriteriaParam.getName();
+    public Boolean buildCriteriaParam(QueryWrapper<T> wrapper, QueryCriteriaParam<T> queryCriteriaParam) {
+        String paramName = getParamName(queryCriteriaParam);
         Object value = queryCriteriaParam.getValue();
         String operation = queryCriteriaParam.getOperation();
-
-        if (Objects.nonNull(queryCriteriaParam.getColumn()) && StringUtils.isBlank(paramName)) {
-            paramName = BuildUtils.getFieldName(queryCriteriaParam.getColumn());
-        }
 
         //paramName必须是build VO的属性
         //ParamName must be an attribute of build VO, Ignore apply operation!!
         if (!isApplySqlOperator(paramName, operation) && !buildHelper.checkEntityAttribute(paramName)) {
-            return;
+            return false;
         }
 
         BuildUtils.checkSqlInjection(paramName, queryCriteriaParam.getValues());
@@ -53,16 +86,39 @@ public class WhereParamsBuilder<T> {
         //and 和 or字段特殊处理
         //Special handling of 'and' and 'or' fields
         switch (paramName.toLowerCase()) {
+            case QueryConstants.NESTED:
+                if (!Objects.isNull(value)) {
+                    List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
+                    queryChildCriteriaParams.forEach(param -> {
+                        boolean succeed = prepareCheckParamName(param);
+                        if (succeed) {
+                            wrapper.nested(nWrapper -> buildCriteriaParam(nWrapper, param));
+                        }
+                    });
+                    return true;
+                }
+                break;
             case QueryConstants.OR:
                 if (!Objects.isNull(value)) {
                     List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
-                    wrapper.or(orWrapper -> queryChildCriteriaParams.forEach(param -> buildCriteriaParam(orWrapper, param)));
+                    queryChildCriteriaParams.forEach(param -> {
+                        boolean succeed = prepareCheckParamName(param);
+                        if (succeed) {
+                            wrapper.or(orWrapper -> buildCriteriaParam(orWrapper, param));
+                        }
+                    });
+                    return true;
                 }
                 break;
             case QueryConstants.AND:
                 if (!Objects.isNull(value)) {
                     List<QueryCriteriaParam<T>> queryChildCriteriaParams = (List<QueryCriteriaParam<T>>) value;
-                    wrapper.and(andWrapper -> queryChildCriteriaParams.forEach(param -> buildCriteriaParam(andWrapper, param)));
+                    queryChildCriteriaParams.forEach(param -> {
+                        boolean succeed = prepareCheckParamName(param);
+                        if (succeed) {
+                            wrapper.and(andWrapper -> buildCriteriaParam(andWrapper, param));
+                        }
+                    });
                 }
                 break;
             default:
@@ -71,15 +127,17 @@ public class WhereParamsBuilder<T> {
                 } else {
                     String paramColumnName = buildHelper.getColumn(paramName);
                     if (StringUtils.isBlank(paramColumnName)) {
-                        return;
+                        return false;
                     }
                     if (Objects.isNull(value)) {
                         wrapper.isNull(paramColumnName);
                     } else {
                         wrapper.eq(paramColumnName, value);
                     }
+                    return true;
                 }
         }
+        return false;
     }
 
     /**

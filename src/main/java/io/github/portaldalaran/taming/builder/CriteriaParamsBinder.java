@@ -32,7 +32,8 @@ import java.util.stream.Stream;
 public class CriteriaParamsBinder<V extends QueryCriteria<T>, T> {
     protected V criteriaVO;
     protected BuildHelper<T> buildHelper;
-protected List<QueryCriteriaParam<T>> queryCriteriaParams;
+    protected List<QueryCriteriaParam<T>> queryCriteriaParams;
+
     public CriteriaParamsBinder(V criteriaVO, BuildHelper<T> buildHelper) {
         this.criteriaVO = criteriaVO;
         this.buildHelper = buildHelper;

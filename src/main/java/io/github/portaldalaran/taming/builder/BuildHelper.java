@@ -79,7 +79,7 @@ public class BuildHelper<T> {
      * @return
      */
     public boolean checkEntityAttribute(String attributeName) {
-        if (QueryConstants.OR.equalsIgnoreCase(attributeName) || QueryConstants.AND.equalsIgnoreCase(attributeName)) {
+        if (QueryConstants.OR.equalsIgnoreCase(attributeName) || QueryConstants.AND.equalsIgnoreCase(attributeName)|| QueryConstants.NESTED.equalsIgnoreCase(attributeName)) {
             return true;
         }
         return buildEntityFieldNames.contains(attributeName);
