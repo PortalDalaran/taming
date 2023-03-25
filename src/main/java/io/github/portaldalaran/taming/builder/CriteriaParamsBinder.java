@@ -58,7 +58,7 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>, T> {
         BeanWrapper beanWrapper = new BeanWrapperImpl(criteriaVO);
         PropertyDescriptor[] pds = beanWrapper.getPropertyDescriptors();
         //过滤掉列表
-        List<Field> entityFields = BuildUtils.getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> !Collection.class.isAssignableFrom(field.getType()) && !Map.class.isAssignableFrom(field.getType())).collect(Collectors.toList());
+        List<Field> entityFields = buildHelper.getBuildEntityFields().stream().filter(field -> !Collection.class.isAssignableFrom(field.getType()) && !Map.class.isAssignableFrom(field.getType())).collect(Collectors.toList());
         for (Field field : entityFields) {
             boolean isFieldName = Arrays.stream(pds).anyMatch(pd -> pd.getName().equalsIgnoreCase(field.getName()));
 
@@ -85,7 +85,7 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>, T> {
 
     private void assembleDateFieldValue() {
         //把日期的字段单独拿出来转换
-        List<Field> dateFields = BuildUtils.getAllDeclaredFields(criteriaVO.getClass()).stream().filter(field -> field.getType() == LocalDate.class
+        List<Field> dateFields = buildHelper.getBuildEntityFields().stream().filter(field -> field.getType() == LocalDate.class
                 || field.getType() == LocalDateTime.class
                 || field.getType() == Date.class).collect(Collectors.toList());
 
@@ -97,14 +97,14 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>, T> {
                 Object[] values = Stream.of(dateValues).map(obj -> {
                     if (LocalDate.class == dateField.getType()) {
                         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd"));
-                        return LocalDate.parse(obj.toString(), formatter);
+                        return LocalDate.parse(obj, formatter);
                     } else if (LocalDateTime.class == dateField.getType()) {
                         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
-                        return LocalDateTime.parse(obj.toString(), formatter);
+                        return LocalDateTime.parse(obj, formatter);
                     } else {
                         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(getAnnotationDatePattern(dateField, "yyyy-MM-dd HH:mm:ss"));
                         try {
-                            return simpleDateFormat.parse(obj.toString());
+                            return simpleDateFormat.parse(obj);
                         } catch (ParseException e) {
                             log.error("转换日期出错", e);
                             return null;

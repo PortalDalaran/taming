@@ -11,6 +11,7 @@ import io.github.portaldalaran.taming.utils.ClassUtils;
 import io.github.portaldalaran.taming.utils.QueryConstants;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -23,6 +24,8 @@ public class QueryCriteriaWrapperBuilder<T> {
     protected Class<T> modelClass;
     protected BuildHelper<T> buildHelper;
 
+    protected List<Class<?>> joinClassList;
+
     public QueryCriteriaWrapperBuilder() {
         this.queryWrapper = new QueryWrapper<T>();
         this.modelClass = ClassUtils.getEntity(getClass());
@@ -30,7 +33,7 @@ public class QueryCriteriaWrapperBuilder<T> {
             throw new QueryCriteriaException("Annotation ParameterizedType is null");
         }
         queryWrapper.setEntityClass(modelClass);
-        buildHelper = new BuildHelper<>(modelClass);
+        buildHelper = new BuildHelper<>(modelClass, new ArrayList<>());
     }
 
     public QueryCriteriaWrapperBuilder(QueryWrapper<T> wrapper) {
@@ -58,9 +61,9 @@ public class QueryCriteriaWrapperBuilder<T> {
         return buildHelper.getAssociationQueryFields();
     }
 
-
-    public <V extends QueryCriteria<T>> boolean build(V criteriaVO) {
-        buildHelper = new BuildHelper<>(modelClass);
+    public <V extends QueryCriteria<T>> boolean build(V criteriaVO, List<Class<?>> inJoinClassList) {
+        joinClassList = Objects.nonNull(inJoinClassList) ? inJoinClassList : new ArrayList<>();
+        buildHelper = new BuildHelper<>(modelClass, joinClassList);
         buildHelper.init(criteriaVO);
 
         buildHelper.newCriteriaParamsBinder(criteriaVO).assembleCriteriaParamsByEntityValue();
@@ -81,5 +84,10 @@ public class QueryCriteriaWrapperBuilder<T> {
             queryWrapper.select(String.join(QueryConstants.FIELD_DELIMITER, queryFields));
         }
         return true;
+    }
+
+    public <V extends QueryCriteria<T>> boolean build(V criteriaVO) {
+
+        return build(criteriaVO, new ArrayList<>());
     }
 }
