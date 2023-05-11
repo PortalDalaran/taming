@@ -60,7 +60,10 @@ public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
             if (!queryFields.contains(tempFun)) {
                 queryFields.add(tempFun);
             }
-            groupByColumns.add(groupByParam);
+            //fixed bug
+            if(StringUtils.isNotBlank(groupByParam)) {
+                groupByColumns.add(groupByParam);
+            }
         }
         //转换为数据库字段后，重新拼装
         //After converting to database fields, reassemble
