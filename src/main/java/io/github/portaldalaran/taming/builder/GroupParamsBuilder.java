@@ -44,13 +44,14 @@ public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
         //If groupBy is used, the groupBy field is automatically added to fields, and the groupBy field is Count
         String[] groupBySplitParams = groupByParams.split(QueryConstants.FIELD_DELIMITER);
         for (String groupByParam : groupBySplitParams) {
-            groupByParam = buildHelper.getColumn(groupByParam);
-
             //paramName必须是build VO的属性
             //ParamName must be an attribute of build VO
             if (StringUtils.isBlank(groupByParam) || !buildHelper.getBuildEntityFieldNames().contains(groupByParam)) {
                 continue;
             }
+
+            //fixed
+            groupByParam = buildHelper.getColumn(groupByParam);
 
             if (!queryFields.contains(groupByParam)) {
                 queryFields.add(groupByParam);
