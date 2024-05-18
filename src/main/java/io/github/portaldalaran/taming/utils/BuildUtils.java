@@ -21,7 +21,7 @@ import java.util.*;
 public class BuildUtils {
 
     private static Map<Class<?>, List<Field>> declaredFieldsCache = new ConcurrentReferenceHashMap<>(256);
-    private static final List<String> CommonFields = Lists.newArrayList("sortorder","orderby", "pageno", "pagesize", "groupby", "having", "fields");
+    private static final List<String> CommonFields = Lists.newArrayList("sortorder", "orderby", "pageno", "pagesize", "groupby", "having", "fields");
 
     /**
      * 返回Mysql字段
@@ -97,11 +97,14 @@ public class BuildUtils {
         if (SqlUtils.checkSqlInjection(paramName)) {
             throw new QueryCriteriaException("Query parameter SQL injection verification failed");
         }
-        for (Object value : values) {
-            if (value != null && SqlUtils.checkSqlInjection(value.toString())) {
-                throw new QueryCriteriaException("Query parameter SQL injection verification failed");
+        if (Objects.nonNull(values)) {
+            for (Object value : values) {
+                if (value != null && SqlUtils.checkSqlInjection(value.toString())) {
+                    throw new QueryCriteriaException("Query parameter SQL injection verification failed");
+                }
             }
         }
+
 
     }
 

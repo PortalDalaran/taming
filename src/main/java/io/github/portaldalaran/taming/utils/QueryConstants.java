@@ -80,6 +80,17 @@ public class QueryConstants  {
      * ex: {name@endWith: 'a'} ---> name like '%a'
      */
     public static final String END_WITH = "endWith";
+
+    /**
+     * ex: {name@null: 'xx'} ---> name is null
+     */
+    public static final String NULL = "null";
+
+    /**
+     * ex: {name@notNull: 'xx'} ---> name is not null
+     */
+    public static final String NOT_NULL = "notNull";
+
     /**
      * ex: {name@in: 'a,b,c'} ---> name in ('a','b','c')
      */

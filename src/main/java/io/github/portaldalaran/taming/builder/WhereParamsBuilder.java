@@ -268,6 +268,14 @@ public class WhereParamsBuilder<T> {
                 wrapper.notInSql(paramColumnName, value.toString());
                 break;
             }
+            case QueryConstants.NULL: {
+                wrapper.isNull(paramColumnName);
+                break;
+            }
+            case QueryConstants.NOT_NULL: {
+                wrapper.isNotNull(paramColumnName);
+                break;
+            }
             default:
                 break;
         }
