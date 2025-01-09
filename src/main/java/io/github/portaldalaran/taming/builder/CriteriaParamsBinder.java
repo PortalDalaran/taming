@@ -54,17 +54,22 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>, T> {
         //between dateField
         assembleDateFieldValue();
         //如果是其它between字段把逗号解析
-        List<QueryCriteriaParam<T>> bets = queryCriteriaParams.stream().filter(param -> param.getOperation().equalsIgnoreCase(QueryConstants.BETWEEN)).collect(Collectors.toList());
+        List<QueryCriteriaParam<T>> bets = queryCriteriaParams.stream()
+                .filter(param -> param.getOperation().equalsIgnoreCase(QueryConstants.BETWEEN))
+                .collect(Collectors.toList());
         for (QueryCriteriaParam<T> criteriaParam : bets) {
             String value = criteriaParam.getValue().toString();
             if (value.contains(QueryConstants.FIELD_DELIMITER)) {
-                criteriaParam.setValue(Arrays.asList(value.split(QueryConstants.FIELD_DELIMITER)));
+                String[] tempValue = value.split(QueryConstants.FIELD_DELIMITER);
+                criteriaParam.setValue(tempValue[0], tempValue[1]);
             }
         }
         BeanWrapper beanWrapper = new BeanWrapperImpl(criteriaVO);
         PropertyDescriptor[] pds = beanWrapper.getPropertyDescriptors();
         //过滤掉列表
-        List<Field> entityFields = buildHelper.getBuildEntityFields().stream().filter(field -> !Collection.class.isAssignableFrom(field.getType()) && !Map.class.isAssignableFrom(field.getType())).collect(Collectors.toList());
+        List<Field> entityFields = buildHelper.getBuildEntityFields().stream()
+                .filter(field -> !Collection.class.isAssignableFrom(field.getType()) && !Map.class.isAssignableFrom(field.getType()))
+                .collect(Collectors.toList());
         for (Field field : entityFields) {
             boolean isFieldName = Arrays.stream(pds).anyMatch(pd -> pd.getName().equalsIgnoreCase(field.getName()));
 

@@ -263,6 +263,7 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
         }
     }
 
+    @Override
     protected void bindMultipart(Map<String, List<MultipartFile>> multipartFiles, MutablePropertyValues mpvs) {
         multipartFiles.forEach((key, values) -> {
             if (values.size() == 1) {
