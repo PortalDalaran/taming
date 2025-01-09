@@ -9,6 +9,6 @@ public class TestQueryCriteria {
 //        student.setAge(1);
 //        student.setName("张三");
 //        student.addQueryCriteriaParam(Student::getName, QueryConstants.EQ,"name");
-        System.out.println( BuildUtils.getFieldName(Student::getName));;
+//        System.out.println( BuildUtils.getFieldName(Student::getName));;
     }
 }

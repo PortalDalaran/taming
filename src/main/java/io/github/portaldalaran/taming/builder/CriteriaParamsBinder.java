@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.google.common.collect.Lists;
 import io.github.portaldalaran.taming.pojo.QueryCriteria;
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
-import io.github.portaldalaran.taming.utils.BuildUtils;
 import io.github.portaldalaran.taming.utils.QueryConstants;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +53,14 @@ public class CriteriaParamsBinder<V extends QueryCriteria<T>, T> {
 
         //between dateField
         assembleDateFieldValue();
-
+        //如果是其它between字段把逗号解析
+        List<QueryCriteriaParam<T>> bets = queryCriteriaParams.stream().filter(param -> param.getOperation().equalsIgnoreCase(QueryConstants.BETWEEN)).collect(Collectors.toList());
+        for (QueryCriteriaParam<T> criteriaParam : bets) {
+            String value = criteriaParam.getValue().toString();
+            if (value.contains(QueryConstants.FIELD_DELIMITER)) {
+                criteriaParam.setValue(Arrays.asList(value.split(QueryConstants.FIELD_DELIMITER)));
+            }
+        }
         BeanWrapper beanWrapper = new BeanWrapperImpl(criteriaVO);
         PropertyDescriptor[] pds = beanWrapper.getPropertyDescriptors();
         //过滤掉列表
