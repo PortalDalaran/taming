@@ -6,7 +6,7 @@
 
     <groupId>io.github.portaldalaran</groupId>
     <artifactId>taming</artifactId>
-    <version>1.0.19</version>
+    <version>1.0.20</version>
     <packaging>jar</packaging>
     <name>${project.artifactId}</name>
     <description>
@@ -29,7 +29,7 @@
 
         <!-- 服务id 也就是setting.xml中的servers.server.id -->
         <serverId>ossrh</serverId>
-        <gpg.keyname>0xD467BD76</gpg.keyname>
+        <gpg.keyname>0xCD002CBA</gpg.keyname>
         <project.url>https://github.com/PortalDalaran/taming.git</project.url>
         <!--项目编码-->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
