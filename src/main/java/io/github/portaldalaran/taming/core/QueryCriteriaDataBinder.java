@@ -5,6 +5,9 @@ import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.pojo.SelectAssociationFields;
 import io.github.portaldalaran.taming.utils.JsonUtils;
 import io.github.portaldalaran.taming.utils.QueryConstants;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Part;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -20,9 +23,7 @@ import org.springframework.web.multipart.support.StandardServletPartUtils;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.util.WebUtils;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.Part;
+
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

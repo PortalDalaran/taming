@@ -1,6 +1,7 @@
 package io.github.portaldalaran.taming.core;
 
 import io.github.portaldalaran.taming.annotation.RequestQueryParam;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;
@@ -9,7 +10,6 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-import javax.servlet.http.HttpServletRequest;
 
 /**
  * @author aohee@163.com

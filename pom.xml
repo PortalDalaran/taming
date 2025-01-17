@@ -6,7 +6,7 @@
 
     <groupId>io.github.portaldalaran</groupId>
     <artifactId>taming</artifactId>
-    <version>1.0.20</version>
+    <version>3.0.0</version>
     <packaging>jar</packaging>
     <name>${project.artifactId}</name>
     <description>
@@ -16,16 +16,16 @@
     <url>https://github.com/PortalDalaran/taming</url>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-        <lombok.version>1.18.24</lombok.version>
-        <spring.boot.version>2.6.8</spring.boot.version>
-        <spring.core.version>5.3.20</spring.core.version>
-        <mybatis-plus.version>3.5.3.2</mybatis-plus.version>
-        <commons.lang3.version>3.12.0</commons.lang3.version>
-        <guava.version>31.1-jre</guava.version>
-        <fastjson.version>2.0.9</fastjson.version>
-        <portaldalaran.talons.version>1.0.12</portaldalaran.talons.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <lombok.version>1.18.36</lombok.version>
+        <spring.boot.version>3.4.1</spring.boot.version>
+        <spring.core.version>6.2.1</spring.core.version>
+        <mybatis-plus.version>3.5.9</mybatis-plus.version>
+        <commons.lang3.version>3.17.0</commons.lang3.version>
+        <guava.version>32.0.1-jre</guava.version>
+        <fastjson2.version>2.0.29</fastjson2.version>
+        <portaldalaran.talons.version>3.0.0</portaldalaran.talons.version>
 
         <!-- 服务id 也就是setting.xml中的servers.server.id -->
         <serverId>ossrh</serverId>
@@ -54,13 +54,13 @@
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>fastjson</artifactId>
-            <version>${fastjson.version}</version>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+            <version>${fastjson2.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>

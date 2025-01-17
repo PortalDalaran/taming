@@ -2,6 +2,9 @@ package io.github.portaldalaran.taming.core;
 
 import io.github.portaldalaran.taming.pojo.QueryCriteriaParam;
 import io.github.portaldalaran.taming.utils.QueryConstants;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Part;
 import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.TypeMismatchException;
@@ -30,9 +33,6 @@ import org.springframework.web.multipart.MultipartRequest;
 import org.springframework.web.multipart.support.StandardServletPartUtils;
 import org.springframework.web.servlet.HandlerMapping;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.Part;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
