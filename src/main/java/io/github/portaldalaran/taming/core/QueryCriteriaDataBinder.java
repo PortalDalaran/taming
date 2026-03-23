@@ -23,7 +23,6 @@ import org.springframework.web.multipart.support.StandardServletPartUtils;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.util.WebUtils;
 
-
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +33,8 @@ import java.util.regex.Pattern;
  * @author david
  */
 public class QueryCriteriaDataBinder extends WebDataBinder {
-    private Pattern pattern = Pattern.compile("(?<=\\[).+?(?=\\])");
+
+    private static final Pattern BRACKET_PATTERN = Pattern.compile("(?<=\\[).+?(?=\\])");
 
     /**
      * Create a new ServletRequestDataBinder instance, with default object name.
@@ -75,20 +75,8 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
     /**
      * Bind the parameters of the given request to this binder's target,
      * also binding multipart files in case of a multipart request.
-     * <p>This call can create field errors, representing basic binding
-     * errors like a required field (code "required"), or type mismatch
-     * between value and bean property (code "typeMismatch").
-     * <p>Multipart files are bound via their parameter name, just like normal
-     * HTTP parameters: i.e. "uploadedFile" to an "uploadedFile" bean property,
-     * invoking a "setUploadedFile" setter method.
-     * <p>The type of the target property for a multipart file can be MultipartFile,
-     * byte[], or String. Servlet Part binding is also supported when the
-     * request has not been parsed to MultipartRequest via MultipartResolver.
      *
      * @param request the request with parameters to bind (can be multipart)
-     * @see org.springframework.web.multipart.MultipartHttpServletRequest
-     * @see org.springframework.web.multipart.MultipartRequest
-     * @see org.springframework.web.multipart.MultipartFile
      * @see #bind(org.springframework.beans.PropertyValues)
      */
     public void bind(ServletRequest request) {
@@ -105,48 +93,41 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
 
             String operation = "";
             //是不是使用了自定义的查询条件，如果是则转化
-            //Is the user-defined query criteria used? If so, convert it
-            if (entityParamNames.paramName.contains("@")) {
-                String[] paramSplits = entityParamNames.paramName.split("@");
-                entityParamNames.paramName = paramSplits[0];
+            if (entityParamNames.getParamName().contains("@")) {
+                String[] paramSplits = entityParamNames.getParamName().split("@");
+                entityParamNames.setParamName(paramSplits[0]);
                 operation = paramSplits[1];
             }
 
             if (values == null || values.length == 0) {
-                // Do nothing, no values found at all.
                 addCriteriaParams(criteriaParams, entityParamNames, operation, null);
             } else if (values.length > 1) {
-                //如果是paramName是user[id]则继续
                 params.put(paramName, values);
                 addCriteriaParams(criteriaParams, entityParamNames, operation, values);
             } else {
-                //如果是paramName是user[id]则继续,user[0]
                 params.put(paramName, values[0]);
                 addCriteriaParams(criteriaParams, entityParamNames, operation, values[0]);
             }
 
             //是否有返回关联表字段
-            //Whether there are returned associated table fields
-            if (QueryConstants.FIELDS.equalsIgnoreCase(entityParamNames.paramName) && entityParamNames.paramName.contains(QueryConstants.RELATION_DELIMITER)) {
-                String[] inputFieldsByRelation = StringUtils.split(entityParamNames.paramName, QueryConstants.RELATION_DELIMITER);
+            if (QueryConstants.FIELDS.equalsIgnoreCase(entityParamNames.getParamName())
+                    && entityParamNames.getParamName().contains(QueryConstants.RELATION_DELIMITER)) {
+                String[] inputFieldsByRelation = StringUtils.split(entityParamNames.getParamName(), QueryConstants.RELATION_DELIMITER);
                 List<String> relationFieldNames = queryRelationFields.get(inputFieldsByRelation[0]);
                 if (Objects.isNull(relationFieldNames)) {
-                    relationFieldNames = Collections.singletonList(inputFieldsByRelation[1]);
-                } else {
-                    relationFieldNames.add(inputFieldsByRelation[1]);
+                    relationFieldNames = new ArrayList<>();
                 }
+                relationFieldNames.add(inputFieldsByRelation[1]);
                 queryRelationFields.put(inputFieldsByRelation[0], relationFieldNames);
             }
         }
         //拼装查询条件
-        // Assembly Query Criteria
         params.put("criteriaParams", criteriaParams);
         List<SelectAssociationFields> selectAssociationFields = new ArrayList<>();
         for (Map.Entry<String, List<String>> entry : queryRelationFields.entrySet()) {
             selectAssociationFields.add(new SelectAssociationFields(entry.getKey(), entry.getValue()));
         }
         //拼装关联表字段
-        //Assembling association table fields
         params.put("selectAssociationFields", selectAssociationFields);
         MutablePropertyValues mpvs = new MutablePropertyValues(params);
 
@@ -164,15 +145,11 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
     }
 
     /**
-     * 比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式
-     * 则把name处理了
-     *
-     * @param paramName
-     * @return
+     * 比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式，则把name处理了
      */
     private EntityParamNames buildParamNames(String paramName) {
         String prefixParamName = "";
-        Matcher matcher = pattern.matcher(paramName);
+        Matcher matcher = BRACKET_PATTERN.matcher(paramName);
         if (matcher.find()) {
             prefixParamName = paramName.split("\\[")[0];
             paramName = matcher.group(0);
@@ -180,28 +157,18 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
         return new EntityParamNames(prefixParamName, paramName);
     }
 
-
-    /**
-     * 拼装
-     *
-     * @param criteriaParams
-     * @param entityParamNames
-     * @param operation
-     * @param value
-     */
+    @SuppressWarnings("unchecked")
     private void addCriteriaParams(List<QueryCriteriaParam> criteriaParams, EntityParamNames entityParamNames, String operation, Object value) {
-        // 如果是比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式,
+        // 如果是比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式
         if (entityParamNames.isOperatorByPrefixParamName()) {
             QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
             if (Objects.isNull(temp)) {
                 List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
-                //value是对应{xxx:xxx}或者直接值
-                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
-                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.prefixParamName, null, queryChildCriteriaParams));
+                buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getPrefixParamName(), null, queryChildCriteriaParams));
             } else {
                 List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
-                //value是对应{xxx:xxx}或者直接值
-                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
+                buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
                 temp.setValue(queryChildCriteriaParams);
             }
         } else if (entityParamNames.isApplySqlOperator()) {
@@ -209,51 +176,44 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
             QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
             if (Objects.isNull(temp)) {
                 List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
-                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
-                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.prefixParamName, QueryConstants.APPLY_SQL, queryChildCriteriaParams));
+                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.getParamName(), operation, value));
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getPrefixParamName(), QueryConstants.APPLY_SQL, queryChildCriteriaParams));
             } else {
                 List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
-                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
+                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.getParamName(), operation, value));
                 temp.setValue(queryChildCriteriaParams);
             }
         } else if (entityParamNames.isOperatorByParamName()) {
             //如果是 or 和and则特殊处理
-            //Special treatment for or and
             QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByParamName(criteriaParams);
             if (Objects.isNull(temp)) {
                 List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
-                //value是对应{xxx:xxx}或者直接值
-                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
-                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.paramName, null, queryChildCriteriaParams));
+                buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getParamName(), null, queryChildCriteriaParams));
             } else {
                 List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
-                buildParamValue(entityParamNames.paramName, operation, value, queryChildCriteriaParams);
+                buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
                 temp.setValue(queryChildCriteriaParams);
             }
-        } else if (entityParamNames.isNoneOperator()) {
+        } else if (entityParamNames.isUserDefinedField()) {
             // 排除users[0]:user1 users[1]:user2
             if (!entityParamNames.isNumber()) {
-                //排除在QueryCriteria中的字段
-                //Fields excluded from QueryCriteria
-                criteriaParams.add(new QueryCriteriaParam(entityParamNames.paramName, operation, value));
+                criteriaParams.add(new QueryCriteriaParam(entityParamNames.getParamName(), operation, value));
             }
         }
-
     }
 
     private void buildParamValue(String paramName, String operation, Object value, List<QueryCriteriaParam> queryChildCriteriaParams) {
-        //value是对应{xxx:xxx}
-        if (value.toString().contains("{")) {
+        if (value != null && value.toString().contains("{")) {
             Map<String, Object> paramMap = JsonUtils.parseObject(value.toString(), new TypeReference<Map<String, Object>>() {
             });
             for (Map.Entry<String, Object> entry : paramMap.entrySet()) {
                 String key = entry.getKey();
                 EntityParamNames prefixKey = buildParamNames(key);
                 //判断是否有操作符
-                //Determine whether there is an operator
                 if (key.contains(QueryConstants.OPTION_DELIMITER)) {
                     String[] keySplits = key.split(QueryConstants.OPTION_DELIMITER);
-                    prefixKey.paramName = keySplits[0];
+                    prefixKey.setParamName(keySplits[0]);
                     addCriteriaParams(queryChildCriteriaParams, prefixKey, keySplits[1], entry.getValue());
                 } else {
                     addCriteriaParams(queryChildCriteriaParams, prefixKey, null, entry.getValue());
@@ -279,18 +239,15 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
     }
 
     /**
-     * Extension point that subclasses can use to add extra bind values for a
-     * request. Invoked before {@link #doBind(MutablePropertyValues)}.
-     * The default implementation is empty.
-     * <p>
      * Merge URI variables into the property values to use for data binding.
      *
      * @param mpvs    the property values that will be used for data binding
      * @param request the current request
      */
+    @SuppressWarnings("unchecked")
     protected void addBindValues(MutablePropertyValues mpvs, ServletRequest request) {
         String attr = HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE;
-        Map<String, String> uriVars = (Map) request.getAttribute(attr);
+        Map<String, String> uriVars = (Map<String, String>) request.getAttribute(attr);
         if (uriVars != null) {
             uriVars.forEach((name, value) -> {
                 if (mpvs.contains(name)) {
@@ -300,15 +257,12 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
                 } else {
                     mpvs.addPropertyValue(name, value);
                 }
-
             });
         }
     }
 
     /**
      * Treats errors as fatal.
-     * <p>Use this method only if it's an error if the input isn't valid.
-     * This might be appropriate if all input is from dropdowns, for example.
      *
      * @throws ServletRequestBindingException subclass of ServletException on any binding problem
      */
@@ -319,5 +273,4 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
                     new BindException(getBindingResult()));
         }
     }
-
 }

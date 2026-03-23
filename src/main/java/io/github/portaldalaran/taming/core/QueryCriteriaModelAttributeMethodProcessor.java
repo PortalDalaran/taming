@@ -194,7 +194,7 @@ public class QueryCriteriaModelAttributeMethodProcessor implements HandlerMethod
 
     @Nullable
     protected Object createAttributeFromRequestValue(String sourceValue, String attributeName, MethodParameter parameter, WebDataBinderFactory binderFactory, NativeWebRequest request) throws Exception {
-        DataBinder binder = binderFactory.createBinder(request, (Object) null, attributeName);
+        DataBinder binder = binderFactory.createBinder(request, null, attributeName);
         ConversionService conversionService = binder.getConversionService();
         if (conversionService != null) {
             TypeDescriptor source = TypeDescriptor.valueOf(String.class);
@@ -383,8 +383,8 @@ public class QueryCriteriaModelAttributeMethodProcessor implements HandlerMethod
         ServletRequest servletRequest = request.getNativeRequest(ServletRequest.class);
         if (servletRequest != null) {
             String attr = HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE;
-            Map<String, String> uriVars = (Map) servletRequest.getAttribute(attr);
-            return uriVars.get(paramName);
+            Map<String, String> uriVars = (Map<String, String>) servletRequest.getAttribute(attr);
+            return uriVars != null ? uriVars.get(paramName) : null;
         } else {
             return null;
         }

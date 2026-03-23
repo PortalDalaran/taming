@@ -21,7 +21,7 @@ public class QueryCriteriaMethodArgumentResolver implements HandlerMethodArgumen
      * <p>
      * The default resolver for resolving Content Type as application/x-www-form-urlencoded is ServletModelAttributeMethodProcessor
      */
-    private QueryCriteriaModelAttributeMethodProcessor queryCriteriaModelAttributeMethodProcessor;
+    private final QueryCriteriaModelAttributeMethodProcessor queryCriteriaModelAttributeMethodProcessor;
 
     public QueryCriteriaMethodArgumentResolver() {
         this.queryCriteriaModelAttributeMethodProcessor = new QueryCriteriaModelAttributeMethodProcessor(true);
@@ -54,6 +54,4 @@ public class QueryCriteriaMethodArgumentResolver implements HandlerMethodArgumen
 
         return queryCriteriaModelAttributeMethodProcessor.resolveArgument(methodParameter, modelAndViewContainer, nativeWebRequest, webDataBinderFactory);
     }
-
-
 }
