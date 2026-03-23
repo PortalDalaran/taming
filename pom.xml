@@ -180,7 +180,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <serverId>${serverId}</serverId>
-                    <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
+                    <nexusUrl>https://ossrh-staging-api.central.sonatype.com/</nexusUrl>
                     <autoReleaseAfterClose>true</autoReleaseAfterClose>
                 </configuration>
             </plugin>
@@ -193,12 +193,8 @@
     </build>
     <distributionManagement>
         <snapshotRepository>
-            <id>${serverId}</id><!--与settings.xml的server.id保持一致-->
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+            <id>central</id>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
         </snapshotRepository>
-        <repository>
-            <id>${serverId}</id><!--与settings.xml的server.id保持一致-->
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
     </distributionManagement>
 </project>
