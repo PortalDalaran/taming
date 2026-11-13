@@ -1,6 +1,7 @@
 package io.github.portaldalaran.taming.pojo;
 
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import io.github.portaldalaran.taming.utils.BuildUtils;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -48,5 +49,17 @@ public abstract class QueryCriteria<T> {
             criteriaParams = new ArrayList<>();
         }
         criteriaParams.add(new QueryCriteriaParam<>(column, operation, values));
+    }
+
+    public void cleanQueryCriteriaParam(SFunction<T, String> column) {
+        String fieldName = BuildUtils.getFieldName(column);
+        cleanQueryCriteriaParam(fieldName);
+    }
+
+    public void cleanQueryCriteriaParam(String fieldName) {
+        if (criteriaParams == null || fieldName == null) {
+            return;
+        }
+        criteriaParams.removeIf(param -> param != null && fieldName.equalsIgnoreCase(param.getName()));
     }
 }

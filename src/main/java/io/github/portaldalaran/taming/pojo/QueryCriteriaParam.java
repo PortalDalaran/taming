@@ -1,6 +1,5 @@
 package io.github.portaldalaran.taming.pojo;
 
-import com.baomidou.mybatisplus.core.conditions.ISqlSegment;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import io.github.portaldalaran.taming.utils.BuildUtils;
 import lombok.Data;
@@ -38,11 +37,11 @@ public class QueryCriteriaParam<T> {
     }
 
     /**
-     * 后续的实现没有写，使用没效果
+     * 通过方法引用指定列；会解析出字段名写入 {@link #name}。
      *
-     * @param column
-     * @param operation
-     * @param values
+     * @param column    实体字段方法引用
+     * @param operation 算子
+     * @param values    条件值
      */
     public QueryCriteriaParam(SFunction<T, ?> column, String operation, Object... values) {
         this.column = column;
@@ -57,7 +56,7 @@ public class QueryCriteriaParam<T> {
 
 
     public Object getValue() {
-        return Objects.nonNull(this.values) ? this.values[0] : null;
+        return Objects.nonNull(this.values) && this.values.length > 0 ? this.values[0] : null;
     }
 
     public Object getValue2() {

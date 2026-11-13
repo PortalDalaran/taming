@@ -81,8 +81,8 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
      */
     public void bind(ServletRequest request) {
         Enumeration<String> paramNames = request.getParameterNames();
-        Map<String, Object> params = new TreeMap<>();
-        List<QueryCriteriaParam> criteriaParams = new ArrayList<>();
+        Map<String, Object> params = new HashMap<>();
+        List<QueryCriteriaParam<?>> criteriaParams = new ArrayList<>();
         Map<String, List<String>> queryRelationFields = new HashMap<>();
         while (paramNames != null && paramNames.hasMoreElements()) {
             String paramName = paramNames.nextElement();
@@ -92,33 +92,41 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
             EntityParamNames entityParamNames = buildParamNames(paramName);
 
             String operation = "";
-            //是不是使用了自定义的查询条件，如果是则转化
-            if (entityParamNames.getParamName().contains("@")) {
-                String[] paramSplits = entityParamNames.getParamName().split("@");
-                entityParamNames.setParamName(paramSplits[0]);
-                operation = paramSplits[1];
+            //是不是使用了自定义的查询条件，如果是则转化（只拆第一个 @）
+            String rawParamName = entityParamNames.getParamName();
+            int atIdx = rawParamName.indexOf(QueryConstants.OPTION_DELIMITER);
+            if (atIdx >= 0) {
+                entityParamNames.setParamName(rawParamName.substring(0, atIdx));
+                operation = rawParamName.substring(atIdx + 1);
             }
 
             if (values == null || values.length == 0) {
                 addCriteriaParams(criteriaParams, entityParamNames, operation, null);
             } else if (values.length > 1) {
-                params.put(paramName, values);
+                putBindProperty(params, entityParamNames, operation, values);
                 addCriteriaParams(criteriaParams, entityParamNames, operation, values);
             } else {
-                params.put(paramName, values[0]);
+                putBindProperty(params, entityParamNames, operation, values[0]);
                 addCriteriaParams(criteriaParams, entityParamNames, operation, values[0]);
             }
 
-            //是否有返回关联表字段
-            if (QueryConstants.FIELDS.equalsIgnoreCase(entityParamNames.getParamName())
-                    && entityParamNames.getParamName().contains(QueryConstants.RELATION_DELIMITER)) {
-                String[] inputFieldsByRelation = StringUtils.split(entityParamNames.getParamName(), QueryConstants.RELATION_DELIMITER);
-                List<String> relationFieldNames = queryRelationFields.get(inputFieldsByRelation[0]);
-                if (Objects.isNull(relationFieldNames)) {
-                    relationFieldNames = new ArrayList<>();
+            // 关联投影：user.name → 选关联表字段；不作为 WHERE（点号字段不是 VO 属性）
+            if (entityParamNames.getParamName().contains(QueryConstants.RELATION_DELIMITER)) {
+                String[] inputFieldsByRelation = StringUtils.split(
+                        entityParamNames.getParamName(), QueryConstants.RELATION_DELIMITER);
+                if (inputFieldsByRelation != null && inputFieldsByRelation.length >= 2) {
+                    List<String> relationFieldNames =
+                            queryRelationFields.computeIfAbsent(inputFieldsByRelation[0], k -> new ArrayList<>());
+                    relationFieldNames.add(inputFieldsByRelation[1]);
                 }
-                relationFieldNames.add(inputFieldsByRelation[1]);
-                queryRelationFields.put(inputFieldsByRelation[0], relationFieldNames);
+            }
+        }
+        // fields=id,user.name,user.sex → 拆出关联投影，主表字段保留在 fields
+        Object fieldsValue = params.get(QueryConstants.FIELDS);
+        if (fieldsValue instanceof String) {
+            String rewritten = extractRelationFieldsFromFieldsParam((String) fieldsValue, queryRelationFields);
+            if (rewritten != null) {
+                params.put(QueryConstants.FIELDS, rewritten);
             }
         }
         //拼装查询条件
@@ -158,69 +166,126 @@ public class QueryCriteriaDataBinder extends WebDataBinder {
     }
 
     @SuppressWarnings("unchecked")
-    private void addCriteriaParams(List<QueryCriteriaParam> criteriaParams, EntityParamNames entityParamNames, String operation, Object value) {
+    private void addCriteriaParams(List<QueryCriteriaParam<?>> criteriaParams, EntityParamNames entityParamNames, String operation, Object value) {
         // 如果是比如传入or:{xx:xx,yy:yy}的情况，会有值or[xx]:xx,or[yy]:yy格式
         if (entityParamNames.isOperatorByPrefixParamName()) {
-            QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
+            QueryCriteriaParam<?> temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
             if (Objects.isNull(temp)) {
-                List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
+                List<QueryCriteriaParam<?>> queryChildCriteriaParams = new ArrayList<>();
                 buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
                 criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getPrefixParamName(), null, queryChildCriteriaParams));
             } else {
-                List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
+                List<QueryCriteriaParam<?>> queryChildCriteriaParams = (List<QueryCriteriaParam<?>>) temp.getValue();
                 buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
                 temp.setValue(queryChildCriteriaParams);
             }
         } else if (entityParamNames.isApplySqlOperator()) {
             //applySql[0]="date_format(dateColumn,'%Y-%m-%d') = {0}" , applySql[1]="2008-08-08"
-            QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
+            QueryCriteriaParam<?> temp = entityParamNames.findQueryCriteriaByPrefixParamName(criteriaParams);
             if (Objects.isNull(temp)) {
-                List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
-                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.getParamName(), operation, value));
+                List<QueryCriteriaParam<?>> queryChildCriteriaParams = new ArrayList<>();
+                queryChildCriteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getParamName(), operation, value));
                 criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getPrefixParamName(), QueryConstants.APPLY_SQL, queryChildCriteriaParams));
             } else {
-                List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
-                queryChildCriteriaParams.add(new QueryCriteriaParam(entityParamNames.getParamName(), operation, value));
+                List<QueryCriteriaParam<?>> queryChildCriteriaParams = (List<QueryCriteriaParam<?>>) temp.getValue();
+                queryChildCriteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getParamName(), operation, value));
                 temp.setValue(queryChildCriteriaParams);
             }
         } else if (entityParamNames.isOperatorByParamName()) {
             //如果是 or 和and则特殊处理
-            QueryCriteriaParam temp = entityParamNames.findQueryCriteriaByParamName(criteriaParams);
+            QueryCriteriaParam<?> temp = entityParamNames.findQueryCriteriaByParamName(criteriaParams);
             if (Objects.isNull(temp)) {
-                List<QueryCriteriaParam> queryChildCriteriaParams = new ArrayList<>();
+                List<QueryCriteriaParam<?>> queryChildCriteriaParams = new ArrayList<>();
                 buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
                 criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getParamName(), null, queryChildCriteriaParams));
             } else {
-                List<QueryCriteriaParam> queryChildCriteriaParams = (List<QueryCriteriaParam>) temp.getValue();
+                List<QueryCriteriaParam<?>> queryChildCriteriaParams = (List<QueryCriteriaParam<?>>) temp.getValue();
                 buildParamValue(entityParamNames.getParamName(), operation, value, queryChildCriteriaParams);
                 temp.setValue(queryChildCriteriaParams);
             }
         } else if (entityParamNames.isUserDefinedField()) {
-            // 排除users[0]:user1 users[1]:user2
-            if (!entityParamNames.isNumber()) {
-                criteriaParams.add(new QueryCriteriaParam(entityParamNames.getParamName(), operation, value));
+            // 排除 users[0] 下标；关联投影 user.name 不进 WHERE
+            if (!entityParamNames.isNumber()
+                    && !entityParamNames.getParamName().contains(QueryConstants.RELATION_DELIMITER)) {
+                criteriaParams.add(new QueryCriteriaParam<>(entityParamNames.getParamName(), operation, value));
             }
         }
     }
 
-    private void buildParamValue(String paramName, String operation, Object value, List<QueryCriteriaParam> queryChildCriteriaParams) {
+    /**
+     * 写入 Spring 属性绑定用的 key：带 @ 算子或关联投影不进 bean 属性，避免污染 {@code name@like} 之类键。
+     */
+    private void putBindProperty(Map<String, Object> params, EntityParamNames entityParamNames,
+                                 String operation, Object value) {
+        if (StringUtils.hasText(operation)) {
+            return;
+        }
+        String bindName = entityParamNames.getParamName();
+        if (!StringUtils.hasText(bindName)
+                || bindName.contains(QueryConstants.RELATION_DELIMITER)) {
+            return;
+        }
+        params.put(bindName, value);
+    }
+
+    /**
+     * 从 fields 参数中拆出 {@code entity.field} 关联投影，返回仅含主表字段的 fields 字符串。
+     */
+    private String extractRelationFieldsFromFieldsParam(String fieldsParams,
+                                                        Map<String, List<String>> queryRelationFields) {
+        if (!StringUtils.hasText(fieldsParams)
+                || !fieldsParams.contains(QueryConstants.RELATION_DELIMITER)) {
+            return null;
+        }
+        List<String> mainFields = new ArrayList<>();
+        for (String part : fieldsParams.split(QueryConstants.FIELD_DELIMITER)) {
+            if (!StringUtils.hasText(part)) {
+                continue;
+            }
+            String field = part.trim();
+            if (field.contains(QueryConstants.RELATION_DELIMITER)) {
+                String[] parts = StringUtils.split(field, QueryConstants.RELATION_DELIMITER);
+                if (parts != null && parts.length >= 2) {
+                    queryRelationFields.computeIfAbsent(parts[0], k -> new ArrayList<>()).add(parts[1]);
+                }
+            } else {
+                mainFields.add(field);
+            }
+        }
+        return String.join(QueryConstants.FIELD_DELIMITER, mainFields);
+    }
+
+    private void buildParamValue(String paramName, String operation, Object value, List<QueryCriteriaParam<?>> queryChildCriteriaParams) {
         if (value != null && value.toString().contains("{")) {
-            Map<String, Object> paramMap = JsonUtils.parseObject(value.toString(), new TypeReference<Map<String, Object>>() {
-            });
+            Map<String, Object> paramMap = tryParseJsonMap(value.toString());
+            if (paramMap == null) {
+                // 含 { 但不是合法 JSON（如普通文本），按字面值条件处理
+                queryChildCriteriaParams.add(new QueryCriteriaParam<>(paramName, operation, value));
+                return;
+            }
             for (Map.Entry<String, Object> entry : paramMap.entrySet()) {
                 String key = entry.getKey();
                 EntityParamNames prefixKey = buildParamNames(key);
-                //判断是否有操作符
-                if (key.contains(QueryConstants.OPTION_DELIMITER)) {
-                    String[] keySplits = key.split(QueryConstants.OPTION_DELIMITER);
-                    prefixKey.setParamName(keySplits[0]);
-                    addCriteriaParams(queryChildCriteriaParams, prefixKey, keySplits[1], entry.getValue());
+                //判断是否有操作符（只拆第一个 @）
+                int keyAt = key.indexOf(QueryConstants.OPTION_DELIMITER);
+                if (keyAt >= 0) {
+                    prefixKey.setParamName(key.substring(0, keyAt));
+                    addCriteriaParams(queryChildCriteriaParams, prefixKey, key.substring(keyAt + 1), entry.getValue());
                 } else {
                     addCriteriaParams(queryChildCriteriaParams, prefixKey, null, entry.getValue());
                 }
             }
         } else {
-            queryChildCriteriaParams.add(new QueryCriteriaParam(paramName, operation, value));
+            queryChildCriteriaParams.add(new QueryCriteriaParam<>(paramName, operation, value));
+        }
+    }
+
+    private Map<String, Object> tryParseJsonMap(String text) {
+        try {
+            return JsonUtils.parseObject(text, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (RuntimeException ex) {
+            return null;
         }
     }
 

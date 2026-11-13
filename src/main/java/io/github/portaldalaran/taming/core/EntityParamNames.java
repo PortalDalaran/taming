@@ -52,15 +52,15 @@ public class EntityParamNames {
         return paramName.chars().allMatch(Character::isDigit);
     }
 
-    public QueryCriteriaParam findQueryCriteriaByPrefixParamName(List<QueryCriteriaParam> criteriaParams) {
+    public QueryCriteriaParam<?> findQueryCriteriaByPrefixParamName(List<QueryCriteriaParam<?>> criteriaParams) {
         return criteriaParams.stream()
-                .filter(params -> params.getName().equalsIgnoreCase(prefixParamName))
+                .filter(params -> params.getName() != null && params.getName().equalsIgnoreCase(prefixParamName))
                 .findFirst().orElse(null);
     }
 
-    public QueryCriteriaParam findQueryCriteriaByParamName(List<QueryCriteriaParam> criteriaParams) {
+    public QueryCriteriaParam<?> findQueryCriteriaByParamName(List<QueryCriteriaParam<?>> criteriaParams) {
         return criteriaParams.stream()
-                .filter(params -> params.getName().equalsIgnoreCase(paramName))
+                .filter(params -> params.getName() != null && params.getName().equalsIgnoreCase(paramName))
                 .findFirst().orElse(null);
     }
 }

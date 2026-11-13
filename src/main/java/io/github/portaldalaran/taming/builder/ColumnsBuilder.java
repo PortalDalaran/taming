@@ -1,6 +1,5 @@
 package io.github.portaldalaran.taming.builder;
 
-import com.google.common.base.Joiner;
 import io.github.portaldalaran.talons.annotation.JoinColumn;
 import io.github.portaldalaran.talons.core.TalonsHelper;
 import io.github.portaldalaran.talons.exception.TalonsException;
@@ -15,7 +14,6 @@ import io.github.portaldalaran.taming.utils.QueryConstants;
 import io.github.portaldalaran.taming.utils.SqlUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -38,8 +36,12 @@ public class ColumnsBuilder<T> {
         if (Objects.isNull(fieldsParams)) {
             return new ArrayList<>();
         }
+        if (selectAssociationFields == null) {
+            selectAssociationFields = List.of();
+        }
 
-        if (SqlUtils.checkSqlInjection(fieldsParams)) {
+        // fields 可含函数与引号字面量，用片段级校验
+        if (SqlUtils.checkSqlFragment(fieldsParams)) {
             throw new QueryCriteriaException("Query parameter SQL injection verification failed");
         }
 
@@ -59,7 +61,8 @@ public class ColumnsBuilder<T> {
                     .findFirst().orElse(null);
 
             if (Objects.isNull(rsFieldInfo)) {
-                continue;
+                throw new QueryCriteriaException(
+                        "Unknown association entity in fields: " + selectAssField.getEntityName());
             }
             if (rsFieldInfo.getAssociationType() == AssociationType.MANYTOONE) {
                 String m2oId = selectAssField.getEntityName() + "Id";
@@ -74,29 +77,49 @@ public class ColumnsBuilder<T> {
 
             AssociationQueryField assQueryField = new AssociationQueryField();
             assQueryField.setTableName(selectAssField.getEntityName());
-            assQueryField.setParameters(Joiner.on(",").join(selectAssField.getFieldNames()));
+            assQueryField.setParameters(String.join(QueryConstants.FIELD_DELIMITER, selectAssField.getFieldNames()));
             buildHelper.getAssociationQueryFields().add(assQueryField);
         }
 
-        String[] inputFieldList = fieldsParams.split(QueryConstants.FIELD_DELIMITER);
-        for (String inputField : inputFieldList) {
-            //ex: count(name)/sum(name)/min(name)
-            if (inputField.contains("(")) {
-                String calcFun = inputField.substring(0, inputField.indexOf("(")).trim();
-                String calcField = inputField.substring(inputField.indexOf("(") + 1, inputField.indexOf(")")).trim();
-                //change db column name
-                calcField = buildHelper.getColumn(calcField);
+        for (String inputField : GroupParamsBuilder.splitHavingClauses(fieldsParams)) {
+            if (StringUtils.isBlank(inputField)) {
+                continue;
+            }
+            inputField = inputField.trim();
+            //ex: count(name)/sum(name)/min(name)/date_format(created,'%Y')
+            int leftParen = inputField.indexOf('(');
+            if (leftParen > 0) {
+                int rightParen = GroupParamsBuilder.findMatchingParen(inputField, leftParen);
+                if (rightParen < 0) {
+                    throw new QueryCriteriaException("Invalid fields expression: " + inputField);
+                }
+                String calcFun = inputField.substring(0, leftParen).trim();
+                String inside = inputField.substring(leftParen + 1, rightParen);
+                String fieldToken = GroupParamsBuilder.extractFieldToken(inside);
+                String calcField = buildHelper.getColumn(fieldToken);
                 if (StringUtils.isBlank(calcField)) {
                     continue;
                 }
                 if (!queryFields.contains(calcField)) {
                     queryFields.add(calcField);
                 }
-                queryFields.add(MessageFormat.format("{0}({1}) as {1}_{0}", calcFun, calcField));
+                String newInside = replaceFirstToken(inside, fieldToken, calcField);
+                queryFields.add(calcFun + "(" + newInside + ") as " + calcField + "_" + calcFun);
             } else {
                 buildHelper.addColumnToQueryFields(queryFields, inputField);
             }
         }
         return queryFields.stream().distinct().collect(Collectors.toList());
+    }
+
+    private static String replaceFirstToken(String source, String token, String replacement) {
+        if (StringUtils.isBlank(token) || source == null) {
+            return source;
+        }
+        int idx = source.indexOf(token);
+        if (idx < 0) {
+            return source;
+        }
+        return source.substring(0, idx) + replacement + source.substring(idx + token.length());
     }
 }

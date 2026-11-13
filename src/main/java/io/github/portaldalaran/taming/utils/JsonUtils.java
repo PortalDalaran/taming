@@ -43,10 +43,31 @@ public class JsonUtils {
     }
 
     public static <T> T parseObject(String text, TypeReference<T> typeReference) {
+        if (StringUtils.isEmpty(text)) {
+            return null;
+        }
         try {
             return objectMapper.readValue(text, typeReference);
         } catch (IOException e) {
             log.error("json parse err,json:{}", text, e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 将对象序列化为 JSON 字符串；null 返回 null。
+     */
+    public static String toJsonString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String) {
+            return (String) value;
+        }
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (IOException e) {
+            log.error("json serialize err,value:{}", value, e);
             throw new RuntimeException(e);
         }
     }

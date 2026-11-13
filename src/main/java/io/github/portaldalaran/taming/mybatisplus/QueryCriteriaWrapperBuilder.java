@@ -12,6 +12,7 @@ import io.github.portaldalaran.taming.utils.QueryConstants;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,13 +28,21 @@ public class QueryCriteriaWrapperBuilder<T> {
     protected List<Class<?>> joinClassList;
 
     public QueryCriteriaWrapperBuilder() {
-        this.queryWrapper = new QueryWrapper<T>();
+        this.queryWrapper = new QueryWrapper<>();
         this.modelClass = ClassUtils.getEntity(getClass());
         if (Objects.isNull(this.modelClass)) {
             throw new QueryCriteriaException("Annotation ParameterizedType is null");
         }
         queryWrapper.setEntityClass(modelClass);
-        buildHelper = new BuildHelper<>(modelClass, new ArrayList<>());
+    }
+
+    public QueryCriteriaWrapperBuilder(Class<T> modelClass) {
+        if (modelClass == null) {
+            throw new QueryCriteriaException("modelClass must not be null");
+        }
+        this.queryWrapper = new QueryWrapper<>();
+        this.modelClass = modelClass;
+        queryWrapper.setEntityClass(modelClass);
     }
 
     public QueryCriteriaWrapperBuilder(QueryWrapper<T> wrapper) {
@@ -43,7 +52,32 @@ public class QueryCriteriaWrapperBuilder<T> {
             throw new QueryCriteriaException("Annotation ParameterizedType is null");
         }
         queryWrapper.setEntityClass(modelClass);
+    }
 
+    public QueryCriteriaWrapperBuilder(Class<T> modelClass, QueryWrapper<T> wrapper) {
+        if (modelClass == null) {
+            throw new QueryCriteriaException("modelClass must not be null");
+        }
+        this.queryWrapper = wrapper;
+        this.modelClass = modelClass;
+        queryWrapper.setEntityClass(modelClass);
+    }
+
+    /**
+     * 静态工厂方法，推荐使用方式，无需匿名子类
+     * <pre>
+     *     QueryCriteriaWrapperBuilder.of(UserDO.class).build(reqVO);
+     * </pre>
+     */
+    public static <T> QueryCriteriaWrapperBuilder<T> of(Class<T> modelClass) {
+        return new QueryCriteriaWrapperBuilder<>(modelClass);
+    }
+
+    /**
+     * 静态工厂方法，支持传入自定义 QueryWrapper
+     */
+    public static <T> QueryCriteriaWrapperBuilder<T> of(Class<T> modelClass, QueryWrapper<T> wrapper) {
+        return new QueryCriteriaWrapperBuilder<>(modelClass, wrapper);
     }
 
     public QueryWrapper<T> getQueryWrapper() {
@@ -58,7 +92,7 @@ public class QueryCriteriaWrapperBuilder<T> {
      * @return
      */
     public List<AssociationQueryField> getAssociationQueryFields() {
-        return buildHelper.getAssociationQueryFields();
+        return buildHelper == null ? Collections.emptyList() : buildHelper.getAssociationQueryFields();
     }
 
     public <V extends QueryCriteria<T>> boolean build(V criteriaVO, List<Class<?>> inJoinClassList) {
@@ -78,7 +112,8 @@ public class QueryCriteriaWrapperBuilder<T> {
 
         WhereParamsBuilder<T> whereParamsBuilder = buildHelper.newWhereParamsBuilder();
         //处理where条件
-        buildHelper.getQueryCriteriaParams().forEach(queryCriteriaParam -> whereParamsBuilder.buildCriteriaParam(queryWrapper, queryCriteriaParam));
+        buildHelper.getQueryCriteriaParams().forEach(queryCriteriaParam ->
+                whereParamsBuilder.buildCriteriaParam(queryWrapper, queryCriteriaParam));
 
         if (!queryFields.isEmpty()) {
             queryWrapper.select(String.join(QueryConstants.FIELD_DELIMITER, queryFields));
@@ -87,7 +122,6 @@ public class QueryCriteriaWrapperBuilder<T> {
     }
 
     public <V extends QueryCriteria<T>> boolean build(V criteriaVO) {
-
         return build(criteriaVO, new ArrayList<>());
     }
 }

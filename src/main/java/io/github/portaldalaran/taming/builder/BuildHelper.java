@@ -48,26 +48,42 @@ public class BuildHelper<T> {
      */
     public BuildHelper(Class<T> modelClass, List<Class<?>> inJoinClassList) {
         this.modelClass = modelClass;
-        this.joinClassList = inJoinClassList;
+        this.joinClassList = inJoinClassList != null ? inJoinClassList : new ArrayList<>();
     }
 
     public <V extends QueryCriteria<T>> void init(V criteriaVO) {
-        buildEntityFields = BuildUtils.getAllDeclaredFields(criteriaVO.getClass());
+        buildEntityFields = new ArrayList<>(BuildUtils.getAllDeclaredFields(criteriaVO.getClass()));
         buildEntityFieldNames = buildEntityFields.stream().map(Field::getName).collect(Collectors.toList());
 
-        //add joinClassList fieldNames
+        // 合并 DO（modelClass）字段：orderBy/筛选可使用 id 等未声明在 PageReqVO 上的实体列
+        if (modelClass != null && modelClass != Object.class) {
+            mergeDeclaredFields(BuildUtils.getAllDeclaredFields(modelClass));
+        }
+
+        // add joinClassList fieldNames
         if (Objects.nonNull(joinClassList)) {
             for (Class<?> joinClass : joinClassList) {
-                List<Field> tempFieldList = BuildUtils.getAllDeclaredFields(joinClass);
-                List<String> tempFieldNameList = tempFieldList.stream().map(Field::getName).collect(Collectors.toList());
-                for (int i = 0; i < tempFieldNameList.size(); i++) {
-                    String tempFieldName = tempFieldNameList.get(i);
-                    if (!buildEntityFieldNames.contains(tempFieldName)) {
-                        buildEntityFieldNames.add(tempFieldName);
-                        buildEntityFields.add(tempFieldList.get(i));
-                    }
-                }
+                mergeDeclaredFields(BuildUtils.getAllDeclaredFields(joinClass));
+            }
+        }
+    }
 
+    /**
+     * 把字段并入白名单（忽略大小写去重）。
+     *
+     * @param fields 待合并字段
+     */
+    private void mergeDeclaredFields(List<Field> fields) {
+        if (fields == null || fields.isEmpty()) {
+            return;
+        }
+        for (Field field : fields) {
+            String tempFieldName = field.getName();
+            boolean exists = buildEntityFieldNames.stream()
+                    .anyMatch(existing -> existing.equalsIgnoreCase(tempFieldName));
+            if (!exists) {
+                buildEntityFieldNames.add(tempFieldName);
+                buildEntityFields.add(field);
             }
         }
     }
@@ -95,7 +111,7 @@ public class BuildHelper<T> {
     public String getColumn(String field) {
         String column = BuildUtils.getColumn(field, this.modelClass);
         //若在model里找不到，则到joinClass中去找
-        if (StringUtils.isBlank(column)) {
+        if (StringUtils.isBlank(column) && joinClassList != null) {
             for (Class<?> joinClass : joinClassList) {
                 column = BuildUtils.getColumn(field, joinClass);
                 if (StringUtils.isNotBlank(column)) {
@@ -114,16 +130,23 @@ public class BuildHelper<T> {
     }
 
     /**
-     * paramName必须是build VO的属性,或者是or,and关键字
-     * ParamName must be an attribute of build VO，or is key {or,and}
+     * 参数名须在查询 VO、实体 DO 或 join 类字段白名单内，或为 or/and/nested。
      *
-     * @param attributeName
-     * @return
+     * @param attributeName 属性名
+     * @return 是否允许作为查询/排序字段
      */
     public boolean checkEntityAttribute(String attributeName) {
         if (QueryConstants.OR.equalsIgnoreCase(attributeName) || QueryConstants.AND.equalsIgnoreCase(attributeName) || QueryConstants.NESTED.equalsIgnoreCase(attributeName)) {
             return true;
         }
-        return buildEntityFieldNames.contains(attributeName);
+        if (attributeName == null || buildEntityFieldNames == null) {
+            return false;
+        }
+        for (String fieldName : buildEntityFieldNames) {
+            if (attributeName.equalsIgnoreCase(fieldName)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -32,15 +32,27 @@ public class OrderBuilder<T> {
 
         String[] orders = orderBy.split(QueryConstants.FIELD_DELIMITER);
         for (String order : orders) {
-            String[] tempOrder = order.split(QueryConstants.OPTION_DELIMITER);
-            String orderColumn = buildHelper.getColumn(tempOrder[0]);
-            //paramName必须是build VO的属性
-            //ParamName must be an attribute of build VO
-            if (StringUtils.isBlank(orderColumn) || !buildHelper.getBuildEntityFieldNames().contains(tempOrder[0])) {
+            if (StringUtils.isBlank(order)) {
                 continue;
             }
+            String[] tempOrder = order.trim().split(QueryConstants.OPTION_DELIMITER);
+            String fieldName = tempOrder[0].trim();
+            String direction = tempOrder.length > 1 ? tempOrder[1].trim() : QueryConstants.ASC;
+            if (!direction.equalsIgnoreCase(QueryConstants.DESC)
+                    && !direction.equalsIgnoreCase(QueryConstants.ASC)) {
+                throw new QueryCriteriaException("Invalid orderBy direction: " + direction);
+            }
+            //paramName必须是build VO的属性
+            //ParamName must be an attribute of build VO
+            if (!buildHelper.checkEntityAttribute(fieldName)) {
+                throw new QueryCriteriaException("Invalid orderBy attribute: " + fieldName);
+            }
+            String orderColumn = buildHelper.getColumn(fieldName);
+            if (StringUtils.isBlank(orderColumn)) {
+                throw new QueryCriteriaException("Cannot resolve column for orderBy: " + fieldName);
+            }
 
-            if (tempOrder[1].equalsIgnoreCase(QueryConstants.DESC)) {
+            if (direction.equalsIgnoreCase(QueryConstants.DESC)) {
                 queryWrapper.orderByDesc(orderColumn);
             } else {
                 queryWrapper.orderByAsc(orderColumn);
