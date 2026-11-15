@@ -81,7 +81,7 @@ public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
         if (Objects.isNull(havingParams)) {
             return queryWrapper;
         }
-        // having 允许函数与引号字面量，用片段级校验（注释 / 堆叠语句）
+        // 先拦注释、堆叠语句和 UNION，再按「字段表达式 + 比较字面量」重写，避免 OR 1=1 这类后缀被拼进去
         if (SqlUtils.checkSqlFragment(havingParams)) {
             throw new QueryCriteriaException("Query parameter SQL injection verification failed");
         }
@@ -92,43 +92,7 @@ public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
             if (StringUtils.isBlank(havingStr)) {
                 continue;
             }
-            havingStr = havingStr.trim();
-            int leftParen = havingStr.indexOf('(');
-            int rightParen = leftParen >= 0 ? findMatchingParen(havingStr, leftParen) : -1;
-            if (leftParen >= 0 && rightParen > leftParen) {
-                // 统计函数：只转换括号内第一个字段标识符（兼容 date_format(created,'%Y')、sum(ifnull(age,0))）
-                String inside = havingStr.substring(leftParen + 1, rightParen);
-                String fieldToken = extractFieldToken(inside);
-                String columnField = buildHelper.getColumn(fieldToken);
-                if (StringUtils.isBlank(columnField) || !buildHelper.checkEntityAttribute(fieldToken)) {
-                    throw new QueryCriteriaException("Invalid having attribute: " + fieldToken);
-                }
-                String newInside = replaceFirstToken(inside, fieldToken, columnField);
-                havingStr = havingStr.substring(0, leftParen + 1) + newInside + havingStr.substring(rightParen);
-            } else {
-                String changStr = "";
-                //没有括号，则根据判断符号（>\<\>=\in\like）来判断
-                String lowerHaving = havingStr.toLowerCase();
-                if (havingStr.indexOf('>') > 0) {
-                    changStr = havingStr.substring(0, havingStr.indexOf('>')).trim();
-                } else if (havingStr.indexOf('<') > 0) {
-                    changStr = havingStr.substring(0, havingStr.indexOf('<')).trim();
-                } else if (havingStr.indexOf('!') > 0) {
-                    changStr = havingStr.substring(0, havingStr.indexOf('!')).trim();
-                } else if (havingStr.indexOf('=') > 0) {
-                    changStr = havingStr.substring(0, havingStr.indexOf('=')).trim();
-                } else if (lowerHaving.indexOf(" in") > 0) {
-                    changStr = havingStr.substring(0, lowerHaving.indexOf(" in")).trim();
-                } else if (lowerHaving.indexOf(" like") > 0) {
-                    changStr = havingStr.substring(0, lowerHaving.indexOf(" like")).trim();
-                }
-                String columnField = buildHelper.getColumn(changStr);
-                if (StringUtils.isBlank(columnField) || !buildHelper.checkEntityAttribute(changStr)) {
-                    throw new QueryCriteriaException("Invalid having attribute: " + changStr);
-                }
-                havingStr = replaceFirstToken(havingStr, changStr, columnField);
-            }
-            havingColumns.add(havingStr);
+            havingColumns.add(HavingClauseRewriter.rewrite(havingStr.trim(), buildHelper));
         }
         if (!havingColumns.isEmpty()) {
             queryWrapper.having(String.join(QueryConstants.FIELD_DELIMITER, havingColumns));
@@ -235,16 +199,5 @@ public class GroupParamsBuilder<V extends QueryCriteria<T>, T> {
             }
         }
         return -1;
-    }
-
-    private static String replaceFirstToken(String source, String token, String replacement) {
-        if (StringUtils.isBlank(token) || source == null) {
-            return source;
-        }
-        int idx = source.indexOf(token);
-        if (idx < 0) {
-            return source;
-        }
-        return source.substring(0, idx) + replacement + source.substring(idx + token.length());
     }
 }

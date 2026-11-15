@@ -6,7 +6,7 @@
 
     <groupId>io.github.portaldalaran</groupId>
     <artifactId>taming</artifactId>
-    <version>3.0.2</version>
+    <version>3.1.0</version>
     <packaging>jar</packaging>
     <name>${project.artifactId}</name>
     <description>
@@ -21,7 +21,7 @@
         <spring.core.version>6.2.19</spring.core.version>
         <mybatis-plus.version>3.5.18</mybatis-plus.version>
         <commons.lang3.version>3.22.0</commons.lang3.version>
-        <portaldalaran.talons.version>3.0.2</portaldalaran.talons.version>
+        <portaldalaran.talons.version>3.1.0</portaldalaran.talons.version>
 
         <!-- 服务id 也就是setting.xml中的servers.server.id -->
         <serverId>ossrh</serverId>

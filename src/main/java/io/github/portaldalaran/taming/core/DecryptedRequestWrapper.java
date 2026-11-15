@@ -31,7 +31,12 @@ public class DecryptedRequestWrapper extends HttpServletRequestWrapper {
 
     @Override
     public Map<String, String[]> getParameterMap() {
-        return decryptedParams;
+        Map<String, String[]> view = new LinkedHashMap<>();
+        for (Map.Entry<String, String[]> entry : decryptedParams.entrySet()) {
+            String[] values = entry.getValue();
+            view.put(entry.getKey(), values == null ? null : values.clone());
+        }
+        return Collections.unmodifiableMap(view);
     }
 
     @Override
